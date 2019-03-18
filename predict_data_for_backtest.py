@@ -5,6 +5,7 @@ import tensorflow as tf
 from model.core.model import Model
 from model.core.data_processor import DataLoader
 import utils_flask_server as utils
+import matplotlib.pyplot as plt
 
 global config
 candles = []
@@ -36,11 +37,19 @@ dataLoader = DataLoader(
     config['data']['columns']
 )
 
+def plot_results(predicted_data, true_data):
+    fig = plt.figure(facecolor='white')
+    ax = fig.add_subplot(111)
+    ax.plot(true_data, label='True Data')
+    plt.plot(predicted_data, label='Prediction')
+    plt.legend()
+    plt.show()
+
 def main():
     results = []
     for i in range(49, len(candles)):
         print(i)
-        result = utils.predict(candles[i - 49:i], 5)
+        result = utils.predict(candles[i - 49:i], 24)
         for temp in range(len(result)):
             result[temp] = str(result[temp])
         results.append({

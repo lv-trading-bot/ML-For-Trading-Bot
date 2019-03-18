@@ -13,7 +13,7 @@
         "rsi"
     ],
     "sequenceLen": 50,
-    "nameModel": "model/saved_models/close_volume-e2.h5",
+    "nameModel": "model/saved_models/07032019-141911-e2.h5",
     "data": {
 		"filename": "BTC_USDT_RSI_MACD.csv",
 		"columns": [
