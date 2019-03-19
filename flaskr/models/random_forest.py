@@ -10,10 +10,11 @@ class RandomForest(BaseModel):
         self.model = RandomForestClassifier(n_estimators=500)
 
     def transform_data(self, train_data=None, backtest_data=None):
-        transformed_train_data = None
-        tranformed_backtest_data = None
-
-        return (transformed_train_data, tranformed_backtest_data)
+        x_train = None
+        y_train = None
+        x_predict = None
+        # TODO Implement transformation
+        return (x_train, y_train, x_predict)
 
     def train(self, x_train, y_train):
         self.model.fit(x_train, y_train)

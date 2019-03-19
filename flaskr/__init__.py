@@ -1,7 +1,8 @@
 import os
-import importlib
+import joblib
+import numpy as np
 
-from flask import Flask, request
+from flask import Flask, request, abort
 from flaskr.models.base_model import BaseModel
 import flaskr.utils as utils
 from config import Config as config
@@ -40,19 +41,32 @@ def create_app(test_config=None):
     def backtest():
         post_data = request.get_json()
         post_metadata = post_data['metadata']
+        print(post_metadata, available_models)
         # If this is a correct model_name
         if(post_metadata['model_name'] in available_models):
-            my_model = BaseModel(
+            print('inside')
+            my_model = utils.ModelFactory(
                 post_metadata['model_name'], post_metadata['candle_size'], post_metadata['train_daterange'])
+
+            x_predict = None
             # If there was an existing model, reuse it
             if(my_model.code_name in utils.get_available_exported_model_names()):
-                # importlib.import_module('{}.{}'.format(config.EXPORTED_MODELS_MPATH, post_metadata['model_name'])
-                return('Cannot reuse model!')
-            # Else create new one, train, predict and save it
+                my_model = joblib.load('{}{}.joblib'.format(
+                    config.EXPORTED_MODELS_DIR, my_model.code_name))
+                x_train, y_train, x_predict = my_model.transform_data(
+                    post_data['train_data'], post_data['backtest_data'])
+            # Else train and save it
             else:
-                return()
+                x_train, y_train, x_predict = my_model.transform_data(
+                    post_data['train_data'], post_data['backtest_data'])
+                my_model.train(x_train, y_train)
+                my_model.save(config.EXPORTED_MODELS_DIR)
 
-        # Return 404, model_name not matched
-        return "this is backtest route: "
+            # Finally predict\
+            if (x_predict != None):
+                return my_model.predict(x_predict)
+
+        # Return 404, model_name not found
+        return abort(404, 'model_name not found')
 
     return app

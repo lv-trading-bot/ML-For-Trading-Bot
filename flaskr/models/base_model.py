@@ -17,9 +17,12 @@ class BaseModel:
         return hashlib.md5(raw_code_name.encode(encoding='utf-8')).hexdigest()
 
     def transform_data(self, train_data=None, backtest_data=None):
-        return (train_data, backtest_data)
+        x_train = None
+        y_train = None
+        x_predict = None
+        return (x_train, y_train, x_predict)
 
-    def train(self, x, y):
+    def train(self, x_train, y_train):
         raise NotImplementedError
 
     def predict(self, x_predict=np.array([])):

@@ -1,5 +1,6 @@
 import os
 from config import Config as config
+from flaskr.models.random_forest import RandomForest
 
 
 def get_available_model_names():
@@ -19,3 +20,10 @@ def get_available_exported_model_names():
     for file in dirs:
         result.append(file[:-7])  # exclude '.joblib'
     return result
+
+
+def ModelFactory(model_name,  candle_size, train_daterange):
+    if(model_name == 'random_forest'):
+        return RandomForest(model_name, candle_size, train_daterange)
+    else:
+        return None
