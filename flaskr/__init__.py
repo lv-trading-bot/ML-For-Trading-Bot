@@ -1,5 +1,6 @@
 import os
 import joblib
+import json
 import numpy as np
 
 from flask import Flask, request, abort
@@ -34,8 +35,11 @@ def create_app(test_config=None):
     # a simple page that says hello
     @app.route('/hello')
     def hello():
-        print(available_models)
         return 'Hello, World!'
+
+    @app.route('/model', methods=['GET'])
+    def model():
+        return(json.dumps(available_models))
 
     @app.route('/backtest', methods=['POST'])
     def backtest():
@@ -51,22 +55,33 @@ def create_app(test_config=None):
             x_predict = None
             # If there was an existing model, reuse it
             if(my_model.code_name in utils.get_available_exported_model_names()):
+                print('Using existing model...')
                 my_model = joblib.load('{}{}.joblib'.format(
                     config.EXPORTED_MODELS_DIR, my_model.code_name))
                 x_train, y_train, x_predict = my_model.transform_data(
                     post_data['train_data'], post_data['backtest_data'])
             # Else train and save it
             else:
+                print('Creating new model...')
                 x_train, y_train, x_predict = my_model.transform_data(
                     post_data['train_data'], post_data['backtest_data'])
                 my_model.train(x_train, y_train)
                 my_model.save(config.EXPORTED_MODELS_DIR)
 
-            # Finally predict\
-            if (x_predict != None):
-                return my_model.predict(x_predict)
+            # Finally predict
+            if (x_predict.all() != None):
+                print('Predicting...')
+                y_predict = my_model.predict(x_predict)
+                result = {}
+                for i in range(len(y_predict)):
+                    result['{}'.format(
+                        post_data['backtest_data'][i]['start'])] = int(y_predict[i])
+                return json.dumps(result)
+            else:
+                return 'Server cannot predict', 404
 
         # Return 404, model_name not found
-        return abort(404, 'model_name not found')
+        else:
+            return 'model_name not found', 404
 
     return app
