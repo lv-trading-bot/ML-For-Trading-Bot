@@ -4,7 +4,8 @@ import joblib
 
 
 class BaseModel:
-    def __init__(self, model_name='', candle_size=1, train_daterange={'from': 0, 'to': 0}):
+    def __init__(self, market_info={}, model_name='', candle_size=1, train_daterange={'from': 0, 'to': 0}):
+        self.market_info = market_info
         self.model_name = model_name
         self.candle_size = candle_size
         self.train_daterange = train_daterange
@@ -12,8 +13,11 @@ class BaseModel:
         self.model = None
 
     def calculate_code_name(self):
-        raw_code_name = '{}-{}-{}-{}'.format(self.model_name, self.candle_size,
-                                             self.train_daterange['from'], self.train_daterange['to'])
+        print(self.market_info)
+        market_info_str = '{}-{}-{}'.format(
+            self.market_info['exchange'], self.market_info['currency'], self.market_info['asset'])
+        raw_code_name = '{}-{}-{}-{}-{}'.format(market_info_str, self.model_name,
+                                                self.candle_size, self.train_daterange['from'], self.train_daterange['to'])
         return hashlib.md5(raw_code_name.encode(encoding='utf-8')).hexdigest()
 
     def transform_data(self, train_data=None, backtest_data=None):

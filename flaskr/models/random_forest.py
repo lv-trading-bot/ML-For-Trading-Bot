@@ -5,8 +5,9 @@ from flaskr.models.base_model import BaseModel
 
 
 class RandomForest(BaseModel):
-    def __init__(self, model_name='', candle_size=1, train_daterange={'from': 0, 'to': 0}):
-        BaseModel.__init__(self, model_name, candle_size, train_daterange)
+    def __init__(self, market_info={}, model_name='', candle_size=1, train_daterange={'from': 0, 'to': 0}):
+        BaseModel.__init__(self, market_info, model_name,
+                           candle_size, train_daterange)
         self.model = RandomForestClassifier(n_estimators=500)
 
     def transform_data(self, train_data=None, backtest_data=None):

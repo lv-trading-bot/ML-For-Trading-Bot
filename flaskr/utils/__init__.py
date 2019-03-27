@@ -22,8 +22,8 @@ def get_available_exported_model_names():
     return result
 
 
-def ModelFactory(model_name,  candle_size, train_daterange):
+def ModelFactory(market_info, model_name,  candle_size, train_daterange):
     if(model_name == 'random_forest'):
-        return RandomForest(model_name, candle_size, train_daterange)
+        return RandomForest(market_info, model_name, candle_size, train_daterange)
     else:
         return None

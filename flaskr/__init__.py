@@ -37,10 +37,12 @@ def create_app(test_config=None):
     def hello():
         return 'Hello, World!'
 
+    # get all available models
     @app.route('/model', methods=['GET'])
     def model():
         return(json.dumps(available_models))
 
+    # backtesting
     @app.route('/backtest', methods=['POST'])
     def backtest():
         post_data = request.get_json()
@@ -50,7 +52,7 @@ def create_app(test_config=None):
         if(post_metadata['model_name'] in available_models):
             print('inside')
             my_model = utils.ModelFactory(
-                post_metadata['model_name'], post_metadata['candle_size'], post_metadata['train_daterange'])
+                post_metadata['market_info'], post_metadata['model_name'], post_metadata['candle_size'], post_metadata['train_daterange'])
 
             x_predict = None
             # If there was an existing model, reuse it
@@ -83,5 +85,10 @@ def create_app(test_config=None):
         # Return 404, model_name not found
         else:
             return 'model_name not found', 404
+
+    # live trading
+    @app.route('/live_trading', methods=['POST'])
+    def live_trading():
+        return "Live trading"
 
     return app
