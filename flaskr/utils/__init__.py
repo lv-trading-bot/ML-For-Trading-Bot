@@ -1,6 +1,7 @@
 import os
 from config import Config as config
 from flaskr.models.random_forest import RandomForest
+from flaskr.models.gradient_boosting import GradientBoosting
 
 
 def get_available_model_names():
@@ -25,5 +26,7 @@ def get_available_exported_model_names():
 def ModelFactory(market_info, model_name,  candle_size, train_daterange):
     if(model_name == 'random_forest'):
         return RandomForest(market_info, model_name, candle_size, train_daterange)
+    elif(model_name == 'gradient_boosting'):
+        return GradientBoosting(market_info, model_name, candle_size, train_daterange)
     else:
         return None
