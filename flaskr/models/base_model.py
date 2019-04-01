@@ -13,7 +13,6 @@ class BaseModel:
         self.model = None
 
     def calculate_code_name(self):
-        print(self.market_info)
         market_info_str = '{}-{}-{}'.format(
             self.market_info['exchange'], self.market_info['currency'], self.market_info['asset'])
         raw_code_name = '{}-{}-{}-{}-{}'.format(market_info_str, self.model_name,
