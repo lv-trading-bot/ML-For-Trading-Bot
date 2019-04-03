@@ -52,23 +52,24 @@ def create_app(test_config=None):
         if(post_metadata['model_name'] in available_models):
             print('inside')
             my_model = utils.ModelFactory(
-                post_metadata['market_info'], post_metadata['model_name'], post_metadata['candle_size'], post_metadata['train_daterange'])
+                post_metadata['market_info'], post_metadata['model_name'], post_metadata['candle_size'],
+                post_metadata['train_daterange'], is_standardized=True, type="rolling", window_size=1)
 
             x_predict = None
-            # If there was an existing model, reuse it
-            if(my_model.code_name in utils.get_available_exported_model_names()):
-                print('Using existing model...')
-                my_model = joblib.load('{}{}.joblib'.format(
-                    config.EXPORTED_MODELS_DIR, my_model.code_name))
-                x_train, y_train, x_predict = my_model.transform_data(
-                    post_data['train_data'], post_data['backtest_data'])
-            # Else train and save it
-            else:
-                print('Creating new model...')
-                x_train, y_train, x_predict = my_model.transform_data(
-                    post_data['train_data'], post_data['backtest_data'])
-                my_model.train(x_train, y_train)
-                my_model.save(config.EXPORTED_MODELS_DIR)
+            # # If there was an existing model, reuse it
+            # if(my_model.code_name in utils.get_available_exported_model_names()):
+            #     print('Using existing model...')
+            #     my_model = joblib.load('{}{}.joblib'.format(
+            #         config.EXPORTED_MODELS_DIR, my_model.code_name))
+            #     x_train, y_train, x_predict = my_model.transform_data(
+            #         post_data['train_data'], post_data['backtest_data'])
+            # # Else train and save it
+            # else:
+            print('Creating new model...')
+            x_train, y_train, x_predict = my_model.transform_data(
+                post_data['train_data'], post_data['backtest_data'])
+            my_model.train(x_train, y_train)
+            # my_model.save(config.EXPORTED_MODELS_DIR)
 
             # Finally predict
             if (x_predict.all() != None):

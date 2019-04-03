@@ -1,15 +1,20 @@
 import numpy as np
 import hashlib
 import joblib
+from sklearn.preprocessing import StandardScaler
 
 
 class BaseModel:
-    def __init__(self, market_info={}, model_name='', candle_size=1, train_daterange={'from': 0, 'to': 0}):
+    def __init__(self, market_info={}, model_name='', candle_size=1, train_daterange={'from': 0, 'to': 0},
+                 is_standardized=True, type="default", window_size=1):
         self.market_info = market_info
         self.model_name = model_name
         self.candle_size = candle_size
         self.train_daterange = train_daterange
         self.code_name = self.calculate_code_name()
+        self.is_standardized = is_standardized
+
+        self.scaler = StandardScaler() if self.is_standardized else None
         self.model = None
 
     def calculate_code_name(self):
@@ -23,6 +28,31 @@ class BaseModel:
         x_train = None
         y_train = None
         x_predict = None
+        transformed_train_data = []
+        transformed_backtest_data = []
+
+        for item in train_data:
+            transformed_train_data.append(list(item.values()))
+        transformed_train_data = np.array(transformed_train_data)
+
+        for item in backtest_data:
+            transformed_backtest_data.append(list(item.values()))
+        transformed_backtest_data = np.array(transformed_backtest_data)
+
+        # bypass first col (start) and last col(action)
+        x_train = transformed_train_data[:, 1:-1]
+        y_train = np.reshape(
+            transformed_train_data[:, -1], len(transformed_train_data))
+        print(transformed_train_data.shape, x_train.shape, y_train.shape)
+
+        x_predict = transformed_backtest_data[:, 1:]
+        print(x_predict.shape)
+
+        if (self.is_standardized):
+            self.scaler.fit(x_train)
+            x_train = self.scaler.transform(x_train)
+            x_predict = self.scaler.transform(x_predict)
+
         return (x_train, y_train, x_predict)
 
     def train(self, x_train, y_train):
