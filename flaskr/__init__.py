@@ -2,6 +2,7 @@ import os
 import joblib
 import json
 import numpy as np
+import math
 
 from flask import Flask, request, abort
 from flaskr.models.base_model import BaseModel
@@ -53,7 +54,7 @@ def create_app(test_config=None):
             print('inside')
             my_model = utils.ModelFactory(
                 post_metadata['market_info'], post_metadata['model_name'], post_metadata['candle_size'],
-                post_metadata['train_daterange'], is_standardized=True, type="rolling", window_size=1)
+                post_metadata['train_daterange'], is_standardized=True, method="default", rolling_step=24*7)
 
             x_predict = None
             # # If there was an existing model, reuse it
@@ -68,20 +69,40 @@ def create_app(test_config=None):
             print('Creating new model...')
             x_train, y_train, x_predict = my_model.transform_data(
                 post_data['train_data'], post_data['backtest_data'])
-            my_model.train(x_train, y_train)
+            # my_model.train(x_train, y_train)
             # my_model.save(config.EXPORTED_MODELS_DIR)
 
             # Finally predict
-            if (x_predict.all() != None):
-                print('Predicting...')
+            print('Predicting...')
+            y_predict = np.array([])
+            if (my_model.method == 'default'):
+                my_model.train(x_train, y_train)
                 y_predict = my_model.predict(x_predict)
-                result = {}
-                for i in range(len(y_predict)):
-                    result['{}'.format(
-                        post_data['backtest_data'][i]['start'])] = int(y_predict[i])
-                return json.dumps(result)
+            elif (my_model.method == 'rolling'):
+                # for i in range(math.ceil(len(x_predict)/my_model.rolling_step)):
+                while (len(x_predict) != 0):
+                    print(len(x_predict))
+                    my_model.train(x_train, y_train)
+                    new_predictions = my_model.predict(
+                        x_predict[:my_model.rolling_step])
+                    actual_predictions_length = len(new_predictions)
+                    y_predict = np.append(y_predict, new_predictions)
+                    # perform sliding window:
+                    # append new predictions to x_train, y_train, also remove old ones
+                    x_train = np.append(
+                        x_train[actual_predictions_length:], x_predict[:actual_predictions_length], axis=0)
+                    y_train = np.append(
+                        y_train[actual_predictions_length:], new_predictions)
+                    x_predict = x_predict[actual_predictions_length:]
             else:
-                return 'Server cannot predict', 404
+                return 'Unknown backtest method', 404
+
+            # Send result
+            result = {}
+            for i in range(len(y_predict)):
+                result['{}'.format(
+                    post_data['backtest_data'][i]['start'])] = int(y_predict[i])
+            return json.dumps(result)
 
         # Return 404, model_name not found
         else:

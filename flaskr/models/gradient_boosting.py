@@ -5,9 +5,10 @@ from flaskr.models.base_model import BaseModel
 
 
 class GradientBoosting(BaseModel):
-    def __init__(self, market_info={}, model_name='', candle_size=1, train_daterange={'from': 0, 'to': 0}):
+    def __init__(self, market_info={}, model_name='', candle_size=1, train_daterange={'from': 0, 'to': 0},
+                 is_standardized=True, type="default", window_size=1):
         BaseModel.__init__(self, market_info, model_name,
-                           candle_size, train_daterange)
+                           candle_size, train_daterange, is_standardized, type, window_size)
         self.model = GradientBoostingClassifier(
             max_depth=4, learning_rate=0.3, n_estimators=10)
 

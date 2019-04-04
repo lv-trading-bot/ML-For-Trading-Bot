@@ -23,8 +23,8 @@ def get_available_exported_model_names():
     return result
 
 
-def ModelFactory(market_info, model_name,  candle_size, train_daterange, is_standardized, type, window_size):
+def ModelFactory(market_info, model_name,  candle_size, train_daterange, is_standardized, method, rolling_step):
     if model_name in available_models:
-        return available_models[model_name](market_info, model_name, candle_size, train_daterange, is_standardized, type, window_size)
+        return available_models[model_name](market_info, model_name, candle_size, train_daterange, is_standardized, method, rolling_step)
     else:
         return None

@@ -6,13 +6,15 @@ from sklearn.preprocessing import StandardScaler
 
 class BaseModel:
     def __init__(self, market_info={}, model_name='', candle_size=1, train_daterange={'from': 0, 'to': 0},
-                 is_standardized=True, type="default", window_size=1):
+                 is_standardized=True, method="default", rolling_step=0):
         self.market_info = market_info
         self.model_name = model_name
         self.candle_size = candle_size
         self.train_daterange = train_daterange
         self.code_name = self.calculate_code_name()
         self.is_standardized = is_standardized
+        self.method = method
+        self.rolling_step = rolling_step
 
         self.scaler = StandardScaler() if self.is_standardized else None
         self.model = None
