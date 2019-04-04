@@ -3,8 +3,9 @@ import joblib
 import json
 import numpy as np
 import math
+import time
 
-from flask import Flask, request, abort
+from flask import Flask, request, abort, g
 from flaskr.models.base_model import BaseModel
 import flaskr.utils as utils
 from config import Config as config
@@ -33,6 +34,16 @@ def create_app(test_config=None):
     except OSError:
         pass
 
+    @app.before_request
+    def before_request():
+        g.request_start_time = time.time()
+
+    @app.after_request
+    def after_request(response):
+        app.logger.info('Execution time %ss', round(
+            time.time() - g.request_start_time, 5))
+        return response
+
     # a simple page that says hello
     @app.route('/hello')
     def hello():
@@ -48,38 +59,30 @@ def create_app(test_config=None):
     def backtest():
         post_data = request.get_json()
         post_metadata = post_data['metadata']
-        print(post_metadata, available_models)
+        app.logger.info('POST metada: %s', post_metadata)
         # If this is a correct model_name
         if(post_metadata['model_name'] in available_models):
-            print('inside')
+            app.logger.info('Starting...')
             my_model = utils.ModelFactory(
                 post_metadata['market_info'], post_metadata['model_name'], post_metadata['candle_size'],
-                post_metadata['train_daterange'], is_standardized=True, method="default", rolling_step=24*7)
+                post_metadata['train_daterange'], is_standardized=True, method=post_metadata['method'], rolling_step=post_metadata['rolling_step'])
 
             x_predict = None
-            # # If there was an existing model, reuse it
-            # if(my_model.code_name in utils.get_available_exported_model_names()):
-            #     print('Using existing model...')
-            #     my_model = joblib.load('{}{}.joblib'.format(
-            #         config.EXPORTED_MODELS_DIR, my_model.code_name))
-            #     x_train, y_train, x_predict = my_model.transform_data(
-            #         post_data['train_data'], post_data['backtest_data'])
-            # # Else train and save it
-            # else:
-            print('Creating new model...')
+            app.logger.info('Creating new model...')
             x_train, y_train, x_predict = my_model.transform_data(
                 post_data['train_data'], post_data['backtest_data'])
-            # my_model.train(x_train, y_train)
-            # my_model.save(config.EXPORTED_MODELS_DIR)
 
             # Finally predict
-            print('Predicting...')
+            app.logger.info('Predicting...')
             y_predict = np.array([])
+
             if (my_model.method == 'default'):
                 my_model.train(x_train, y_train)
                 y_predict = my_model.predict(x_predict)
+
             elif (my_model.method == 'rolling'):
-                # for i in range(math.ceil(len(x_predict)/my_model.rolling_step)):
+                if (my_model.rolling_step < 1):
+                    return 'Invalid rolling step', 400
                 while (len(x_predict) != 0):
                     print(len(x_predict))
                     my_model.train(x_train, y_train)
@@ -93,10 +96,12 @@ def create_app(test_config=None):
                         x_train[actual_predictions_length:], x_predict[:actual_predictions_length], axis=0)
                     y_train = np.append(
                         y_train[actual_predictions_length:], new_predictions)
+                    # shift and cut predicted rows
                     x_predict = x_predict[actual_predictions_length:]
             else:
                 return 'Unknown backtest method', 404
 
+            print(y_predict.shape)
             # Send result
             result = {}
             for i in range(len(y_predict)):
