@@ -17,15 +17,16 @@ class RandomForest(BaseModel):
         transformed_train_data = []
         transformed_backtest_data = []
 
-        for item in train_data:
-            transformed_train_data.append(list(item.values()))
+        if (train_data):
+            for item in train_data:
+                transformed_train_data.append(list(item.values()))
 
-        transformed_train_data = np.array(transformed_train_data)
-        # bypass first col (start) and last col(action)
-        x_train = transformed_train_data[:, 1:-1]
-        y_train = np.reshape(
-            transformed_train_data[:, -1], len(transformed_train_data))
-        print(transformed_train_data.shape, x_train.shape, y_train.shape)
+            transformed_train_data = np.array(transformed_train_data)
+            # bypass first col (start) and last col(action)
+            x_train = transformed_train_data[:, 1:-1]
+            y_train = np.reshape(
+                transformed_train_data[:, -1], len(transformed_train_data))
+            print(transformed_train_data.shape, x_train.shape, y_train.shape)
 
         for item in backtest_data:
             transformed_backtest_data.append(list(item.values()))
