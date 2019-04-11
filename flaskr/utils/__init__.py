@@ -25,23 +25,28 @@ def get_available_exported_model_names():
     return result
 
 
-def ModelFactory(market_info, model_name,  candle_size, train_daterange, is_standardized, method, rolling_step):
-    if model_name in available_models:
-        return available_models[model_name](market_info, model_name, candle_size, train_daterange, is_standardized, method, rolling_step)
-    else:
-        return None
-
-
-def ModelFactory2(model_type=MODEL_TYPES[0], model_name="random_forest", candle_size=60, market_info=None, train_daterage=None, test_daterange=None, lag=0, rolling_step=0):
+def ModelFactory(model_type=MODEL_TYPES[0], model_name="random_forest", candle_size=60, market_info=None, train_daterange=None, test_daterange=None, lag=0, rolling_step=0):
     if model_name in available_models:
         return available_models[model_name](
             model_type=model_type,
             model_name=model_name,
             candle_size=candle_size,
             market_info=market_info,
-            train_daterage=train_daterage,
+            train_daterange=train_daterange,
             test_daterange=test_daterange,
             lag=lag,
             rolling_step=rolling_step)
     else:
         return None
+
+
+def filter_dict_array_by_keys(array, keys, not_keys=[]):
+    result = []
+    for item in array:
+        if (not_keys):
+            result.append(
+                {k: v for (k, v) in candle.items() if not(k in not_keys)})
+        else:
+            result.append(
+                {k: v for (k, v) in candle.items() if k in keys})
+    return np.array(result)

@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import hashlib
 import joblib
 import json
@@ -20,6 +21,8 @@ class BaseModel:
         self.lag = lag if (lag > 0) else 0
         self.rolling_step = rolling_step if (rolling_step > 0) else 0
 
+        self.features = ["start", "open", "high", "low",
+                         "close", "volume", "trades", "action"]
         self.code_name = self.calculate_code_name()
         self.scaler = StandardScaler()
         self.model = None
@@ -31,8 +34,11 @@ class BaseModel:
                                                 self.candle_size, self.train_daterange['from'], self.train_daterange['to'])
         return hashlib.md5(raw_code_name.encode(encoding='utf-8')).hexdigest()
 
-    # get data from DB, right now temporarily read from JSON
-    def get_raw_data(self):
+    def get_raw_data(self, features=["start", "open", "high", "low", "close", "volume", "trades", "action"]):
+        """
+        Get data from DB by features, right now temporarily read from JSON
+        """
+
         pre_train = []
         train_data = []
         rolling_train = []
@@ -66,6 +72,8 @@ class BaseModel:
             # get data by daterange
             for candle in candles:
                 candle_start = candle['start']
+                # filter out attributes
+                candle = {k: v for (k, v) in candle.items() if k in features}
                 # if candle falls into any range of the pre_train, train, ...
                 if (candle_start >= pre_train_from and candle_start < pre_train_to):
                     pre_train.append(candle)
@@ -80,46 +88,48 @@ class BaseModel:
 
         return {
             "train": {
-                "pre_data": np.array(pre_train),
-                "data": np.array(train_data),
-                "rolling_data": np.array(rolling_train)
+                "pre_data": pre_train,
+                "data": train_data,
+                "rolling_data": rolling_train
             },
             "test": {
-                "pre_data": np.array(pre_test),
-                "data": np.array(test_data),
+                "pre_data": pre_test,
+                "data": test_data,
             }
         }
 
-    def transform_data(self, train_data=None, backtest_data=None):
-        x_train = None
-        y_train = None
-        x_predict = None
-        transformed_train_data = []
-        transformed_backtest_data = []
+    def transform_data(self, raw_result):
+        """
+        Transform data from raw_result to np.array, add lagged columns and standardize data
+        """
 
-        for item in train_data:
-            transformed_train_data.append(list(item.values()))
-        transformed_train_data = np.array(transformed_train_data)
+        pre_train = pd.DataFrame(raw_result['train']['pre_data'])
+        train_data = pd.DataFrame(raw_result['train']['data'])
+        rolling_train = pd.DataFrame(raw_result['train']['rolling_data'])
 
-        for item in backtest_data:
-            transformed_backtest_data.append(list(item.values()))
-        transformed_backtest_data = np.array(transformed_backtest_data)
+        pre_test = pd.DataFrame(raw_result['test']['pre_data'])
+        test_data = pd.DataFrame(raw_result['test']['data'])
 
-        # bypass first col (start) and last col(action)
-        x_train = transformed_train_data[:, 1:-1]
-        y_train = np.reshape(
-            transformed_train_data[:, -1], len(transformed_train_data))
-        print(transformed_train_data.shape, x_train.shape, y_train.shape)
+        print(train_data.head())
+        print(test_data.head())
+        # TODO
+        # If lag>0, add lagged columns to x_train, x_rolling, x_predict
 
-        x_predict = transformed_backtest_data[:, 1:]
-        print(x_predict.shape)
+        # filter out cols
+        x_train = train_data.drop(columns=['start', 'action']).values
+        y_train = train_data[['action']].values.reshape(-1)
+        x_rolling = rolling_train.drop(columns=['start', 'action']).values
+        y_rolling = rolling_train[['action']].values.reshape(-1)
+        x_predict = test_data.drop(columns=['start', 'action']).values
 
-        if (self.is_standardized):
+        # standardize data
+        if (self.scaler):
             self.scaler.fit(x_train)
             x_train = self.scaler.transform(x_train)
+            x_rolling = self.scaler.transform(x_rolling)
             x_predict = self.scaler.transform(x_predict)
 
-        return (x_train, y_train, x_predict)
+        return x_train, y_train, x_rolling, y_rolling, x_predict
 
     def train(self, x_train, y_train):
         raise NotImplementedError
@@ -129,33 +139,3 @@ class BaseModel:
 
     def save(self, exported_dir):
         joblib.dump(self, exported_dir + self.code_name + '.joblib')
-
-
-# # Check code
-# bmodel = BaseModel(market_info={
-#     "exchange": "binance",
-#     "asset": "BTC",
-#     "currency": "USDT"
-# },
-#     train_daterange={
-#     "from": 1518382800000,
-#     "to": 1522404000000
-# },
-#     test_daterange={
-#     "from": 1522404000000,
-#     "to": 1522422000000
-# },
-#     lag=1,
-#     rolling_step=2)
-
-# result = bmodel.get_raw_data()
-
-# print("TRAIN\n", result['train']['pre_data'])
-# print(result['train']['data'].shape, "\n", result['train']
-#       ['data'][0], result['train']['data'][-1])
-# print(result['train']['rolling_data'].shape, "\n", result['train']
-#       ['rolling_data'][0], result['train']['rolling_data'][-1])
-
-# print("TEST\n", result['test']['pre_data'])
-# print(result['test']['data'].shape, "\n", result['test']
-#       ['data'][0], result['test']['data'][-1])
