@@ -106,14 +106,44 @@ class BaseModel:
         pre_train = pd.DataFrame(raw_result['train']['pre_data'])
         train_data = pd.DataFrame(raw_result['train']['data'])
         rolling_train = pd.DataFrame(raw_result['train']['rolling_data'])
+        print(len(pre_train), len(train_data), len(rolling_train))
 
         pre_test = pd.DataFrame(raw_result['test']['pre_data'])
         test_data = pd.DataFrame(raw_result['test']['data'])
 
+        # If lag>0, add lagged columns to train_data, rolling_train, test_data
+        if (self.lag > 0):
+            if(self.lag == len(pre_train)):
+                # Merge all arrays for easy manipulation
+                full_train = pd.DataFrame(
+                    raw_result['train']['pre_data'] + raw_result['train']['data'] + raw_result['train']['rolling_data'])
+                full_test = pd.DataFrame(
+                    raw_result['test']['pre_data'] + raw_result['test']['data'])
+
+                cols_to_drop = ['start', 'action']
+                cols_to_concat = [[full_train], [full_test]]
+
+                for i in range(1, self.lag + 1):
+                    cols_to_concat[0].append(full_train.drop(
+                        columns=cols_to_drop).shift(i).add_suffix('_lag' + str(i)))
+                    cols_to_concat[1].append(full_test.drop(
+                        columns=cols_to_drop).shift(i).add_suffix('_lag' + str(i)))
+
+                # Drop NaN values
+                full_train = pd.concat(cols_to_concat[0], axis=1).dropna()
+                full_test = pd.concat(cols_to_concat[1], axis=1).dropna()
+
+                # Split back into train_data, rolling_train
+                # test_data is automatically trimmed by dropping NaNs
+                train_data = full_train[:len(train_data)]
+                rolling_train = full_train[len(train_data):]
+                test_data = full_test
+                print(train_data.shape, rolling_train.shape, full_test.shape)
+            else:
+                print('Lag value is invalid.')
+
         print(train_data.head())
         print(test_data.head())
-        # TODO
-        # If lag>0, add lagged columns to x_train, x_rolling, x_predict
 
         # filter out cols
         x_train = train_data.drop(columns=['start', 'action']).values
