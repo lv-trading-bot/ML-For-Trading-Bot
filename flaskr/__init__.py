@@ -7,9 +7,8 @@ import time
 
 from flask import Flask, request, abort, g
 from flaskr.utils import Utils as utils
+from flaskr.models.model_factory import ModelFactory
 from config import Config as config
-
-available_models = utils.get_available_model_names()
 
 
 def create_app(test_config=None):
@@ -51,18 +50,18 @@ def create_app(test_config=None):
     # get all available models
     @app.route('/model', methods=['GET'])
     def model():
-        return(json.dumps(available_models))
+        return(json.dumps(ModelFactory.get_available_model_names()))
 
     # backtesting
     @app.route('/backtest', methods=['POST'])
     def backtest():
         post_data = request.get_json()
         post_metadata = post_data['metadata']
-        app.logger.info('POST metada: %s', post_metadata)
+        app.logger.info('POST metada:\n%s', post_metadata)
         # If this is a correct model_name
-        if(post_metadata['model_name'] in available_models):
+        if(ModelFactory.model_is_existed(name=post_metadata['model_name'])):
             app.logger.info('Creating new model...')
-            my_model = utils.ModelFactory(
+            my_model = ModelFactory.create_model(
                 model_type=post_metadata['model_type'],
                 model_name=post_metadata['model_name'],
                 candle_size=post_metadata['candle_size'],

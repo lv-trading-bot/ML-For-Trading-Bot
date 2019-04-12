@@ -6,6 +6,7 @@ import json
 import requests
 from sklearn.preprocessing import StandardScaler
 from config import Config as config
+from flaskr.utils import Utils
 
 MODEL_TYPES = config.MODEL_TYPES
 MINUTE_IN_MILLISECONDS = 60000
@@ -36,7 +37,7 @@ class BaseModel:
         return hashlib.md5(raw_code_name.encode(encoding='utf-8')).hexdigest()
 
     def get_candles_by_daterange(self, from_time=0, to_time=0):
-        return requests.post(config.DB_SERVER_BASE_URL + '/candles', json={
+        return Utils.get_candles_from_db(settings={
             'market_info': self.market_info,
             'candle_size': self.candle_size,
             'from': from_time,
