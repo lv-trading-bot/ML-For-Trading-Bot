@@ -8,7 +8,7 @@ MODEL_TYPES = config.MODEL_TYPES
 
 
 class GradientBoosting(BaseModel):
-    def __init__(self, model_type=MODEL_TYPES[0], model_name="random_forest", candle_size=60, market_info=None, train_daterange=None, test_daterange=None, lag=0, rolling_step=0):
+    def __init__(self, model_type=MODEL_TYPES[0], model_name="random_forest", candle_size=60, market_info=None, train_daterange=None, test_daterange=None, lag=0, rolling_step=0, features=["close", "omlbct"], label="omlbct"):
         BaseModel.__init__(self,
                            model_type=model_type,
                            model_name=model_name,
@@ -17,7 +17,9 @@ class GradientBoosting(BaseModel):
                            train_daterange=train_daterange,
                            test_daterange=test_daterange,
                            lag=lag,
-                           rolling_step=rolling_step)
+                           rolling_step=rolling_step,
+                           features=features,
+                           label=label)
         self.model = GradientBoostingClassifier(
             max_depth=4, learning_rate=0.3, n_estimators=10)
 

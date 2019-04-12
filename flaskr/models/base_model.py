@@ -3,6 +3,7 @@ import pandas as pd
 import hashlib
 import joblib
 import json
+import requests
 from sklearn.preprocessing import StandardScaler
 from config import Config as config
 
@@ -11,7 +12,7 @@ MINUTE_IN_MILLISECONDS = 60000
 
 
 class BaseModel:
-    def __init__(self, model_type=MODEL_TYPES[0], model_name="random_forest", candle_size=60, market_info=None, train_daterange=None, test_daterange=None, lag=0, rolling_step=0):
+    def __init__(self, model_type=MODEL_TYPES[0], model_name="random_forest", candle_size=60, market_info=None, train_daterange=None, test_daterange=None, lag=0, rolling_step=0, features=["close", "omlbct"], label="omlbct"):
         self.model_type = model_type
         self.model_name = model_name
         self.candle_size = candle_size
@@ -21,8 +22,8 @@ class BaseModel:
         self.lag = lag if (lag > 0) else 0
         self.rolling_step = rolling_step if (rolling_step > 0) else 0
 
-        self.features = ["start", "open", "high", "low",
-                         "close", "volume", "trades", "action"]
+        self.features = features
+        self.label = label
         self.code_name = self.calculate_code_name()
         self.scaler = StandardScaler()
         self.model = None
@@ -34,7 +35,16 @@ class BaseModel:
                                                 self.candle_size, self.train_daterange['from'], self.train_daterange['to'])
         return hashlib.md5(raw_code_name.encode(encoding='utf-8')).hexdigest()
 
-    def get_raw_data(self, features=["start", "open", "high", "low", "close", "volume", "trades", "action"]):
+    def get_candles_by_daterange(self, from_time=0, to_time=0):
+        return requests.post(config.DB_SERVER_BASE_URL + '/candles', json={
+            'market_info': self.market_info,
+            'candle_size': self.candle_size,
+            'from': from_time,
+            'to': to_time,
+            'features': self.features,
+        })
+
+    def get_raw_data(self):
         """
         Get data from DB by features, right now temporarily read from JSON
         """
@@ -63,28 +73,18 @@ class BaseModel:
         rolling_train_from = train_data_to
         rolling_train_to = train_data_to + (test_data_to - test_data_from)
 
-        # Load JSON, assume data is in ascending order
-        with open('flaskr/data/full_{}_{}_{}_OMLBCT_{}_01-09-17_25-02-19.json'.format(
-            self.market_info['exchange'], self.market_info['asset'], self.market_info['currency'], self.candle_size
-        )) as json_file:
-            candles = json.load(json_file)
+        # get data from db
+        pre_train = self.get_candles_by_daterange(
+            pre_train_from, pre_train_to).json()
+        train_data = self.get_candles_by_daterange(
+            train_data_from, train_data_to).json()
+        rolling_train = self.get_candles_by_daterange(
+            rolling_train_from, rolling_train_to).json()
 
-            # get data by daterange
-            for candle in candles:
-                candle_start = candle['start']
-                # filter out attributes
-                candle = {k: v for (k, v) in candle.items() if k in features}
-                # if candle falls into any range of the pre_train, train, ...
-                if (candle_start >= pre_train_from and candle_start < pre_train_to):
-                    pre_train.append(candle)
-                if (candle_start >= train_data_from and candle_start < train_data_to):
-                    train_data.append(candle)
-                if (candle_start >= rolling_train_from and candle_start < rolling_train_to):
-                    rolling_train.append(candle)
-                if (candle_start >= pre_test_from and candle_start < pre_test_to):
-                    pre_test.append(candle)
-                if (candle_start >= test_data_from and candle_start < test_data_to):
-                    test_data.append(candle)
+        pre_test = self.get_candles_by_daterange(
+            pre_test_from, pre_test_to).json()
+        test_data = self.get_candles_by_daterange(
+            test_data_from, test_data_to).json()
 
         return {
             "train": {
@@ -111,6 +111,9 @@ class BaseModel:
         pre_test = pd.DataFrame(raw_result['test']['pre_data'])
         test_data = pd.DataFrame(raw_result['test']['data'])
 
+        # cols to drop when fitting model
+        cols_to_drop = ['start', self.label]
+
         # If lag>0, add lagged columns to train_data, rolling_train, test_data
         if (self.lag > 0):
             if(self.lag == len(pre_train)):
@@ -120,7 +123,6 @@ class BaseModel:
                 full_test = pd.DataFrame(
                     raw_result['test']['pre_data'] + raw_result['test']['data'])
 
-                cols_to_drop = ['start', 'action']
                 cols_to_concat = [[full_train], [full_test]]
 
                 for i in range(1, self.lag + 1):
@@ -146,11 +148,11 @@ class BaseModel:
         print(test_data.head())
 
         # filter out cols
-        x_train = train_data.drop(columns=['start', 'action']).values
-        y_train = train_data[['action']].values.reshape(-1)
-        x_rolling = rolling_train.drop(columns=['start', 'action']).values
-        y_rolling = rolling_train[['action']].values.reshape(-1)
-        x_predict = test_data.drop(columns=['start', 'action']).values
+        x_train = train_data.drop(columns=cols_to_drop).values
+        y_train = train_data[[self.label]].values.reshape(-1)
+        x_rolling = rolling_train.drop(columns=cols_to_drop).values
+        y_rolling = rolling_train[[self.label]].values.reshape(-1)
+        x_predict = test_data.drop(columns=cols_to_drop).values
 
         # standardize data
         if (self.scaler):
