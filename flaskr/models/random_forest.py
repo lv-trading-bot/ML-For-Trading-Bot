@@ -21,7 +21,7 @@ class RandomForest(BaseModel):
                            features=features,
                            label=label)
         self.model = RandomForestClassifier(n_estimators=500)
-
+        
     def train(self, x_train, y_train):
         self.model.fit(x_train, y_train)
 
