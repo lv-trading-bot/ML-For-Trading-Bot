@@ -1,6 +1,9 @@
 import os
 import requests
+import logging
 from config import Config as config
+
+logger = logging.getLogger(config.APP_LOGGER_NAME)
 
 
 class Utils:
@@ -24,7 +27,11 @@ class Utils:
         return np.array(result)
 
     def get_candles_from_db(settings):
-        """
+        """Get raw candles from DB
+
+        Parameters
+        ----------
+        settings : object
         {
             "market_info": {
                 "exchange": "binance",
@@ -49,6 +56,14 @@ class Utils:
                 }
             ]
         }
-        """
 
-        return requests.post(config.DB_SERVER_BASE_URL + '/candles', json=settings)
+        Returns
+        -------
+        candles: array
+            Return array of dict if success, otherwise return None
+        """
+        try:
+            return requests.post(config.DB_SERVER_BASE_URL + '/candles', json=settings)
+        except Exception as e:
+            logger.error(e)
+            return None
