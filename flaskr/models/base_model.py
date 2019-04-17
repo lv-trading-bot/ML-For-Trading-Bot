@@ -4,9 +4,12 @@ import hashlib
 import joblib
 import json
 import requests
+import logging
 from sklearn.preprocessing import StandardScaler
 from config import Config as config
 from flaskr.utils import Utils
+
+logger = logging.getLogger(config.APP_LOGGER_NAME)
 
 MODEL_TYPES = config.MODEL_TYPES
 MINUTE_IN_MILLISECONDS = 60000
@@ -47,7 +50,28 @@ class BaseModel:
 
     def get_raw_data(self):
         """
-        Get data from DB by features, right now temporarily read from JSON
+        Get raw data from DB based on features of model (self.features)
+
+        Returns
+        -------
+        result : object
+            {
+                "train" : {
+                    "pre_data" : array
+                        Prepared data used for calculating lagging
+                    "data" : array
+                        Actual data used for training
+                    "rolling_data" : array
+                        Prepared data used for rolling-type model
+                },
+                "test" : {
+                    "pre_data" : array
+                        Prepared data used for calculating lagging
+                    "data" : array
+                        Actual data used for testing
+                }
+
+            }
         """
 
         pre_train = []
@@ -75,39 +99,60 @@ class BaseModel:
         rolling_train_to = train_data_to + (test_data_to - test_data_from)
 
         # get data from db
-        pre_train = self.get_candles_by_daterange(
-            pre_train_from, pre_train_to).json()
-        train_data = self.get_candles_by_daterange(
-            train_data_from, train_data_to).json()
-        rolling_train = self.get_candles_by_daterange(
-            rolling_train_from, rolling_train_to).json()
+        try:
+            pre_train = self.get_candles_by_daterange(
+                pre_train_from, pre_train_to).json()
+            train_data = self.get_candles_by_daterange(
+                train_data_from, train_data_to).json()
+            rolling_train = self.get_candles_by_daterange(
+                rolling_train_from, rolling_train_to).json()
 
-        pre_test = self.get_candles_by_daterange(
-            pre_test_from, pre_test_to).json()
-        test_data = self.get_candles_by_daterange(
-            test_data_from, test_data_to).json()
-
-        return {
-            "train": {
-                "pre_data": pre_train,
-                "data": train_data,
-                "rolling_data": rolling_train
-            },
-            "test": {
-                "pre_data": pre_test,
-                "data": test_data,
+            pre_test = self.get_candles_by_daterange(
+                pre_test_from, pre_test_to).json()
+            test_data = self.get_candles_by_daterange(
+                test_data_from, test_data_to).json()
+        except Exception as e:
+            return None
+        else:
+            return {
+                "train": {
+                    "pre_data": pre_train,
+                    "data": train_data,
+                    "rolling_data": rolling_train
+                },
+                "test": {
+                    "pre_data": pre_test,
+                    "data": test_data,
+                }
             }
-        }
 
     def transform_data(self, raw_result):
         """
-        Transform data from raw_result to np.array, add lagged columns and standardize data
+        Transform data from raw_result to np.ndarray, add lagged columns and standardize data
+
+        Parameters
+        ----------
+        raw_result : object
+            Same structure with the returned value of function get_raw_data
+
+        Returns
+        -------
+        x_train : np.ndarray
+            2D array shaped (observations, features) 
+        y_train : np.ndarray
+            1D array
+        x_rolling : 
+            2D array shaped (observations, features)
+        y_rolling : np.ndarray
+            1D array
+        x_predict : np.ndarray
+            2D array shaped (observations, features)
+
         """
 
         pre_train = pd.DataFrame(raw_result['train']['pre_data'])
         train_data = pd.DataFrame(raw_result['train']['data'])
         rolling_train = pd.DataFrame(raw_result['train']['rolling_data'])
-        print(len(pre_train), len(train_data), len(rolling_train))
 
         pre_test = pd.DataFrame(raw_result['test']['pre_data'])
         test_data = pd.DataFrame(raw_result['test']['data'])
@@ -141,12 +186,12 @@ class BaseModel:
                 train_data = full_train[:len(train_data)]
                 rolling_train = full_train[len(train_data):]
                 test_data = full_test
-                print(train_data.shape, rolling_train.shape, full_test.shape)
             else:
-                print('Lag value is invalid.')
+                raise Exception('Non-matching lag value (self.lag, len(pre_train)) = ({}, {})'.format(
+                    self.lag, len(pre_train)))
 
-        print(train_data.head())
-        print(test_data.head())
+        logger.info('Train set[:5]: \n{}'.format(train_data.head()))
+        logger.info('Test set[:5]: \n{}'.format(test_data.head()))
 
         # filter out cols
         x_train = train_data.drop(columns=cols_to_drop).values
