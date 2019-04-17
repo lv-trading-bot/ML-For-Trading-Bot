@@ -4,6 +4,7 @@ import json
 import numpy as np
 import math
 import time
+import pandas as pd
 
 from flask import Flask, request, abort, g
 from flaskr.utils import Utils as utils
@@ -81,6 +82,7 @@ def create_app(test_config=None):
 
                 # Backtest time!!
                 app.logger.info('Predicting...')
+
                 if (my_model.model_type == "fixed"):
                     my_model.train(x_train, y_train)
                     y_predict = my_model.predict(x_predict)
@@ -90,7 +92,8 @@ def create_app(test_config=None):
                     out_of_rolling = False
 
                     while (len(x_predict) != 0):
-                        print('Number of predictions left: %10d' % len(x_predict), end='\r')
+                        print('Number of predictions left: %10d' %
+                              len(x_predict), end='\r')
 
                         if (not out_of_rolling):
                             my_model.train(x_train, y_train)
@@ -125,6 +128,10 @@ def create_app(test_config=None):
                 else:
                     return 'Invalid model_type: %s' % my_model.model_type, 400
 
+                # maximum profit, FOR TESTING PURPOSE ONLY
+                y_predict = pd.DataFrame(raw_result['test']['data'])[[my_model.label]].values.reshape(
+                    -1) if ('max_test' in post_metadata and post_metadata['max_test']) else y_predict
+
                 # Send result
                 result = {}
                 for i in range(len(y_predict)):
@@ -134,12 +141,13 @@ def create_app(test_config=None):
             # Return 404, model_name not found
             else:
                 return 'Invalid model_name: %s' % (post_metadata['model_name']), 404
+
         except KeyError as e:
             app.logger.error(e)
-            return 'Invalid JSON schema, please provide enough params.', 400
+            return 'Invalid JSON schema, please provide enough and correct params.', 400
         except Exception as e:
             app.logger.error(e)
-            return 'Something went wrong, please try again.', 500
+            return str(e), 400
 
     # live trading
     @app.route('/live_trading', methods=['POST'])

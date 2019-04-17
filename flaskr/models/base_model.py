@@ -23,14 +23,19 @@ class BaseModel:
         self.market_info = market_info
         self.train_daterange = train_daterange
         self.test_daterange = test_daterange
-        self.lag = lag if (lag > 0) else 0
-        self.rolling_step = rolling_step if (rolling_step > 0) else 0
+        self.lag = lag
+        self.rolling_step = rolling_step
 
         self.features = features
         self.label = label
         self.code_name = self.calculate_code_name()
         self.scaler = StandardScaler()
         self.model = None
+
+        if (model_type == 'rolling' and rolling_step < 1):
+            raise Exception('Rolling_step must be > 0')
+        if (lag < 0):
+            raise Exception('Lag value must be >= 0')
 
     def calculate_code_name(self):
         market_info_str = '{}-{}-{}'.format(
@@ -101,14 +106,14 @@ class BaseModel:
         # get data from db
         try:
             pre_train = self.get_candles_by_daterange(
-                pre_train_from, pre_train_to).json()
+                pre_train_from, pre_train_to).json() if self.lag > 0 else None
             train_data = self.get_candles_by_daterange(
                 train_data_from, train_data_to).json()
             rolling_train = self.get_candles_by_daterange(
-                rolling_train_from, rolling_train_to).json()
+                rolling_train_from, rolling_train_to).json() if self.rolling_step > 0 else None
 
             pre_test = self.get_candles_by_daterange(
-                pre_test_from, pre_test_to).json()
+                pre_test_from, pre_test_to).json() if self.lag > 0 else None
             test_data = self.get_candles_by_daterange(
                 test_data_from, test_data_to).json()
         except Exception as e:
@@ -196,15 +201,20 @@ class BaseModel:
         # filter out cols
         x_train = train_data.drop(columns=cols_to_drop).values
         y_train = train_data[[self.label]].values.reshape(-1)
-        x_rolling = rolling_train.drop(columns=cols_to_drop).values
-        y_rolling = rolling_train[[self.label]].values.reshape(-1)
+        if (self.rolling_step > 0):
+            x_rolling = rolling_train.drop(columns=cols_to_drop).values
+            y_rolling = rolling_train[[self.label]].values.reshape(-1)
+        else:
+            x_rolling = None
+            y_rolling = None
         x_predict = test_data.drop(columns=cols_to_drop).values
 
         # standardize data
         if (self.scaler):
             self.scaler.fit(x_train)
             x_train = self.scaler.transform(x_train)
-            x_rolling = self.scaler.transform(x_rolling)
+            x_rolling = self.scaler.transform(x_rolling) if (
+                self.rolling_step > 0) else None
             x_predict = self.scaler.transform(x_predict)
 
         return x_train, y_train, x_rolling, y_rolling, x_predict
