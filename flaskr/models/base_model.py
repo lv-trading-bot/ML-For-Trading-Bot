@@ -106,14 +106,14 @@ class BaseModel:
         # get data from db
         try:
             pre_train = self.get_candles_by_daterange(
-                pre_train_from, pre_train_to).json() if self.lag > 0 else None
+                pre_train_from, pre_train_to).json() if self.lag > 0 else []
             train_data = self.get_candles_by_daterange(
                 train_data_from, train_data_to).json()
             rolling_train = self.get_candles_by_daterange(
-                rolling_train_from, rolling_train_to).json() if self.rolling_step > 0 else None
+                rolling_train_from, rolling_train_to).json() if self.rolling_step > 0 else []
 
             pre_test = self.get_candles_by_daterange(
-                pre_test_from, pre_test_to).json() if self.lag > 0 else None
+                pre_test_from, pre_test_to).json() if self.lag > 0 else []
             test_data = self.get_candles_by_daterange(
                 test_data_from, test_data_to).json()
         except Exception as e:
@@ -205,8 +205,8 @@ class BaseModel:
             x_rolling = rolling_train.drop(columns=cols_to_drop).values
             y_rolling = rolling_train[[self.label]].values.reshape(-1)
         else:
-            x_rolling = None
-            y_rolling = None
+            x_rolling = []
+            y_rolling = []
         x_predict = test_data.drop(columns=cols_to_drop).values
 
         # standardize data
@@ -214,7 +214,7 @@ class BaseModel:
             self.scaler.fit(x_train)
             x_train = self.scaler.transform(x_train)
             x_rolling = self.scaler.transform(x_rolling) if (
-                self.rolling_step > 0) else None
+                self.rolling_step > 0) else []
             x_predict = self.scaler.transform(x_predict)
 
         return x_train, y_train, x_rolling, y_rolling, x_predict
