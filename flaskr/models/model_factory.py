@@ -1,3 +1,4 @@
+import hashlib
 from flaskr.models.random_forest import RandomForest
 from flaskr.models.gradient_boosting import GradientBoosting
 from flaskr.models.lstm import Lstm
@@ -38,3 +39,18 @@ class ModelFactory:
                 raise e
         else:
             return None
+
+    def get_live_models():
+        dirs = os.listdir(Config.LIVE_MODELS_DIR)
+        result = {}
+        for file_name in dirs:
+            name = file_name[:-7]  # exclude '.joblib'
+            result[name] = joblib.load(Config.LIVE_MODELS_DIR + file_name)
+        return result
+
+    def calculate_code_name(string_array):
+        raw_code_name = ''
+        sorted_string_array = sorted(string_array)
+        for string in sorted_string_array:
+            raw_code_name += (string + '$')
+        return hashlib.md5(raw_code_name.encode(encoding='utf-8')).hexdigest()

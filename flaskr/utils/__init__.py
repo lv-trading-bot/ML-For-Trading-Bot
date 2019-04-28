@@ -1,6 +1,8 @@
 import os
 import requests
 import logging
+import json
+import joblib
 from config import Config as config
 
 logger = logging.getLogger(config.APP_LOGGER_NAME)
@@ -63,7 +65,21 @@ class Utils:
             Return array of dict if success, otherwise return None
         """
         try:
-            return requests.post(config.DB_SERVER_BASE_URL + '/candles', json=settings)
+            return requests.post(config.DB_SERVER_BASE_URL + '/candles', json=settings).json()
         except Exception as e:
-            logger.error(e)
-            return None
+            raise e
+            return []
+
+    def get_string_values_inside(obj):
+        result = []
+        for attribute in obj:
+            if (type(attribute) is str):
+                result.append(attribute)
+            elif (type(attribute) is dict):
+                result += get_string_values_inside(attribute)
+            elif (type(attribute) is list):
+                for item in attribute:
+                    result += get_string_values_inside(obj)
+            else:
+                result += str(attribute)
+        return result

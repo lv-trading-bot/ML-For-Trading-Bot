@@ -12,7 +12,7 @@ from flaskr.utils import Utils
 logger = logging.getLogger(config.APP_LOGGER_NAME)
 
 MODEL_TYPES = config.MODEL_TYPES
-MINUTE_IN_MILLISECONDS = 60000
+MINUTE_IN_MILLISECONDS = config.MINUTE_IN_MILLISECONDS
 
 
 class BaseModel:
@@ -21,6 +21,7 @@ class BaseModel:
         self.model_name = model_name
         self.candle_size = candle_size
         self.market_info = market_info
+        # TODO default daterange based on DEFAULT_TRAIN_SIZE
         self.train_daterange = train_daterange
         self.test_daterange = test_daterange
         self.lag = lag
@@ -28,9 +29,12 @@ class BaseModel:
 
         self.features = features
         self.label = label
+        # TODO check 'horizon' attribute in labeled feature
         self.code_name = self.calculate_code_name()
         self.scaler = StandardScaler()
         self.model = None
+
+        self.current_step = 0  # only used in live
 
         if (model_type == 'rolling' and rolling_step < 1):
             raise Exception('Rolling_step must be > 0')
@@ -218,6 +222,94 @@ class BaseModel:
             x_predict = self.scaler.transform(x_predict)
 
         return x_train, y_train, x_rolling, y_rolling, x_predict
+
+    def get_raw_data2(self, data_from, data_to):
+        """Get raw data, including pre_data if has lag"""
+        pre_data = []
+        data = []
+
+        if (self.lag > 0):
+            pre_from = data_from - self.lag * self.candle_size * MINUTE_IN_MILLISECONDS
+            pre_to = data_from
+            pre_data = self.get_candles_by_daterange(pre_from, pre_to)
+
+        data = self.get_candles_by_daterange(data_from, data_to)
+
+        return pre_data, data
+
+    def turn_into_DataFrame(raw_data):
+        return pd.DataFrame(raw_data)
+
+    def add_lagged_cols(self, pre_df, data_df, cols_to_drop):
+        full_df = pd.concat([pre_df, data_df], ignore_index=True)
+        shifted_dfs = []
+        dropped_df = full_df.drop(columns=cols_to_drop)
+
+        # assumming len(pre_df) == self.lag
+        for i in range(1, self.lag + 1):
+            shifted_dfs.append(dropped_df.shift(i).add_suffix('_lag%s' % i))
+
+        # drop NaN values
+        lagged_df = pd.concat(shifted_dfs, axis=1).dropna()
+        return lagged_df
+
+    def split_x_y(self, data_df, cols_to_drop=[]):
+        x = data_df.drop(columns=cols_to_drop).values
+        y = data_df[[self.label]].values.reshape(-1)
+        return x, y
+
+    def fit_scaler(self, data):
+        self.scaler.fit(data)
+
+    def standardize_data(self, data):
+        return self.scaler.transform(data)
+
+    def prepare_data(self, raw_pre_data, raw_data, for_training=False):
+        pre_df = self.turn_into_DataFrame(pre_data)
+        data_df = self.turn_into_DataFrame(data)
+
+        lagged_df = self.add_lagged_cols(
+            pre_df, data_df, cols_to_drop=['start', self.label])
+        x, y = self.split_x_y(lagged_df, cols_to_drop=['start', self.label])
+
+        if (for_training):
+            self.fit_scaler(x)
+        x = self.standardize_data(x)
+
+        return x, y
+
+    def train_by_daterange(self, train_from=self.train_daterange['from'], train_to=self.train_daterange['to']):
+        raw_pre_data, raw_data = self.get_raw_data2(train_from, train_to)
+        x_train, y_train = prepare_data(
+            raw_pre_data, raw_data, for_training=True)
+        self.model.train(x_train, y_train)
+
+    def update_by_candle_start(self, candle_start):
+        if (self.model_type == 'rolling'):
+            candle_size_in_milliseconds = self.candle_size*MINUTE_IN_MILLISECONDS
+            
+            # get 'horizon' attribute in the labeled feature
+            horizon = next((item for item in self.features if (
+                x[self.label]['horizon'] > 0)), config.DEFAULT_HORIZON)
+            # safety gap for getting data to calculate label for train data
+            horizon_in_milliseconds = horizon * candle_size_in_milliseconds
+
+            rolling_step_in_milliseconds = self.rolling_step * candle_size_in_milliseconds
+
+            train_to = self.train_daterange['to']
+            train_from = self.train_daterange['from']
+            train_size = train_to - train_from
+
+            # difference vs first_step in k rolling_step
+            diff_vs_first_step = candle_start - (train_to + horizon_in_milliseconds)
+            if (diff_vs_first_step >= rolling_step_in_milliseconds):
+                block_to_move = (diff_vs_first_step // rolling_step_in_milliseconds) 
+                #update daterange and re-train
+                self.train_daterange = {
+                    'from': train_from + block_to_move * rolling_step_in_milliseconds,
+                    'to': train_to + block_to_move * rolling_step_in_milliseconds
+                }
+                self.train_by_daterange()
 
     def train(self, x_train, y_train):
         raise NotImplementedError

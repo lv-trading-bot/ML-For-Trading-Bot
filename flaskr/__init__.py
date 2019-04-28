@@ -33,6 +33,9 @@ def create_app(test_config=None):
     except OSError:
         pass
 
+    # create live model store
+    live_model_store = utils.get_live_models()
+
     @app.before_request
     def before_request():
         g.request_start_time = time.time()
@@ -150,8 +153,54 @@ def create_app(test_config=None):
             return str(e), 400
 
     # live trading
-    @app.route('/live_trading', methods=['POST'])
+    @app.route('/live', methods=['POST'])
     def live_trading():
-        return "Live trading"
+        try:
+            # Get request JSON
+            post_data = request.get_json()
+            app.logger.info('POST data:\n%s', post_metadata)
+            model_info = post_data['model_info']
+            candle_start = post_data['candle_start']
+
+            # Check model existence
+            model_info_values = utils.get_string_values_inside(model_info)
+            code_name = ModelFactory.calculate_code_name(model_info_values)
+
+            if (code_name in live_model_store):
+                # Use existing model in store
+                app.logger.info('Using existing model: ' + code_name)
+                model = live_model_store[code_name]
+                # Update and re-train if necessary
+                model.update(candle_start)
+            else:
+                # Create new model and add to store
+                app.logger.info('Creating new model: ' + code_name)
+                model = ModelFactory.create_model(
+                    model_type=model_info['model_type'],
+                    model_name=model_info['model_name'],
+                    candle_size=model_info['candle_size'],
+                    market_info=model_info['market_info'],
+                    train_daterange=model_info['train_daterange'] if model_info['model_type'] == 'fixed' else None,
+                    # test_daterange=model_info['backtest_daterange'],
+                    lag=model_info['lag'],
+                    rolling_step=model_info['rolling_step'],
+                    features=model_info['features'],
+                    label=model_info['label'])
+                model.update(
+                    candle_start, new_train_daterange=model.train_daterange)
+
+            # Get pre_test, test from DB
+            raw_pre_test, raw_test = model.get_raw_data2(
+                candle_start, candle_start + model.candle_size*config.MINUTE_IN_MILLISECONDS)
+            # Transform data and predict
+            test_data = model.transform_data2(
+                raw_pre_test, raw_test, cols_to_drop=['start', model.label])
+            # Return result
+            result = {}
+            result['result'] = model.predict(test_data)[0]
+            return json.dumps(result)
+        except KeyError as e:
+            app.logger.error(e)
+            return 'Invalid JSON schema, please provide enough and correct params.', 400
 
     return app
