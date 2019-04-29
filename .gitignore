@@ -28,3 +28,4 @@ htmlcov/
 *,cover
 
 exported_models
+live_models

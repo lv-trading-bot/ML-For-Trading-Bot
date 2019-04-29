@@ -72,14 +72,14 @@ class Utils:
 
     def get_string_values_inside(obj):
         result = []
-        for attribute in obj:
-            if (type(attribute) is str):
-                result.append(attribute)
-            elif (type(attribute) is dict):
-                result += get_string_values_inside(attribute)
-            elif (type(attribute) is list):
-                for item in attribute:
-                    result += get_string_values_inside(obj)
-            else:
-                result += str(attribute)
-        return result
+        
+        if (type(obj) is dict):
+            for item in obj:
+                result += Utils.get_string_values_inside(obj[item])
+        elif (type(obj) is list):   
+            for item in obj:
+                result += Utils.get_string_values_inside(item)    
+        else:
+            result.append(str(obj))
+
+        return sorted(result)

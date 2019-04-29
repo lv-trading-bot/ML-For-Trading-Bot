@@ -1,4 +1,6 @@
 import hashlib
+import os
+import joblib
 from flaskr.models.random_forest import RandomForest
 from flaskr.models.gradient_boosting import GradientBoosting
 from flaskr.models.lstm import Lstm
@@ -48,6 +50,7 @@ class ModelFactory:
             result[name] = joblib.load(Config.LIVE_MODELS_DIR + file_name)
         return result
 
+    # DEPRECATED
     def calculate_code_name(string_array):
         raw_code_name = ''
         sorted_string_array = sorted(string_array)
