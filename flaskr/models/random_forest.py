@@ -8,14 +8,13 @@ MODEL_TYPES = config.MODEL_TYPES
 
 
 class RandomForest(BaseModel):
-    def __init__(self, model_type=MODEL_TYPES[0], model_name="random_forest", candle_size=60, market_info=None, train_daterange=None, test_daterange=None, lag=0, rolling_step=0, features=["close", "omlbct"], label="omlbct"):
+    def __init__(self, model_type=MODEL_TYPES[0], model_name="random_forest", candle_size=60, market_info=None, train_daterange=None, lag=0, rolling_step=0, features=["close", "omlbct"], label="omlbct"):
         BaseModel.__init__(self,
                            model_type=model_type,
                            model_name=model_name,
                            candle_size=candle_size,
                            market_info=market_info,
                            train_daterange=train_daterange,
-                           test_daterange=test_daterange,
                            lag=lag,
                            rolling_step=rolling_step,
                            features=features,
