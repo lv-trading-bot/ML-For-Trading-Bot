@@ -41,8 +41,8 @@ class Utils:
                 "asset": "BTC"
             },
             "candle_size": 60,
-            "from": "2018-10-01T00:00:00.000Z",
-            "to": "2018-10-01T02:00:00.000Z",
+            "from": 1555925760000,
+            "to": 1555929360000,
             "features": [
                 "start",
                 "close",

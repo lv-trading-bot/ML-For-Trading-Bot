@@ -165,7 +165,7 @@ def create_app(test_config=None):
 
     # live trading
     @app.route('/live', methods=['POST'])
-    def live_trading():
+    def live():
         try:
             # Get request JSON
             post_data = request.get_json()
@@ -215,9 +215,8 @@ def create_app(test_config=None):
             y_predict = model.predict(x_test)
 
             result = {}
-            for item in raw_test:
-                result[item['start']] = int(y_predict[0])
-                y_predict[1:]  # remove first ele
+            result['result'] = int(y_predict[0])
+            
             return json.dumps(result)
 
         except KeyError as e:
