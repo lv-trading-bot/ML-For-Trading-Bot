@@ -51,18 +51,17 @@ class BaseModel:
                 'Cannot get expirationPeriod in labeled feature\'s params')
 
         if (train_daterange is None or model_type == 'rolling'):
-            logger.info('Using default daterange...')
             now = int(time.time()*1000) - MINUTE_IN_MILLISECONDS
 
             try:
                 train_size = self.train_daterange['to'] - \
                     self.train_daterange['from']
             except:
+                logger.info('Using default daterange...')
                 train_size = config.DEFAULT_TRAIN_SIZE
                 self.train_daterange = {}
 
-            self.train_daterange['to'] = now - \
-                (horizon * candle_size * MINUTE_IN_MILLISECONDS)
+            self.train_daterange['to'] = now
             self.train_daterange['from'] = self.train_daterange['to'] - train_size
 
         self.code_name = self.calculate_code_name()
@@ -71,11 +70,13 @@ class BaseModel:
         all_string_values = []
 
         if (self.model_type == 'fixed'):
-            all_string_values += [str(self.train_daterange['from']), str(self.train_daterange['to'])]
+            all_string_values += [str(self.train_daterange['from']),
+                                  str(self.train_daterange['to'])]
         elif (self.model_type == 'rolling'):
-            train_size = self.train_daterange['to'] - self.train_daterange['from']
+            train_size = self.train_daterange['to'] - \
+                self.train_daterange['from']
             all_string_values += [str(train_size)]
-        
+
         for item in ATTRIBUTES_USED_FOR_CODE_NAME:
             all_string_values += Utils.get_string_values_inside(
                 getattr(self, item))
@@ -169,9 +170,9 @@ class BaseModel:
                 'to': train_to
             }
 
-        #update code_name
+        # update code_name
         self.code_name = self.calculate_code_name()
-        
+
         raw_pre_data, raw_data = self.get_raw_data(train_from, train_to)
         x_train, y_train = self.prepare_data(
             raw_pre_data, raw_data, for_training=True)
@@ -180,22 +181,13 @@ class BaseModel:
     def update_by_candle_start(self, candle_start):
         if (self.model_type == 'rolling'):
             candle_size_in_milliseconds = self.candle_size*MINUTE_IN_MILLISECONDS
-
-            # get 'expirationPeriod' attribute in the labeled feature
-            horizon = next(x for x in self.features if ('name' in x and x['name'] == self.label))[
-                'params']['expirationPeriod']
-            # safety gap for getting data to calculate label for train data
-            horizon_in_milliseconds = horizon * candle_size_in_milliseconds
-
             rolling_step_in_milliseconds = self.rolling_step * candle_size_in_milliseconds
 
             train_to = self.train_daterange['to']
             train_from = self.train_daterange['from']
-            train_size = train_to - train_from
 
             # difference vs first_step in k rolling_step
-            diff_vs_first_step = candle_start - \
-                (train_to + horizon_in_milliseconds)
+            diff_vs_first_step = candle_start - train_to
             if (diff_vs_first_step >= rolling_step_in_milliseconds):
                 logger.info('Rolling to new daterange...')
                 block_to_move = (diff_vs_first_step //
