@@ -2,38 +2,25 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from flaskr.models.base_model import BaseModel
+from config import Config as config
+
+MODEL_TYPES = config.MODEL_TYPES
 
 
 class RandomForest(BaseModel):
-    def __init__(self, market_info={}, model_name='', candle_size=1, train_daterange={'from': 0, 'to': 0}):
-        BaseModel.__init__(self, market_info, model_name,
-                           candle_size, train_daterange)
+    def __init__(self, model_type=MODEL_TYPES[0], model_name="random_forest", candle_size=60, market_info=None, train_daterange=None, lag=0, rolling_step=0, features=["close", "omlbct"], label="omlbct"):
+        BaseModel.__init__(self,
+                           model_type=model_type,
+                           model_name=model_name,
+                           candle_size=candle_size,
+                           market_info=market_info,
+                           train_daterange=train_daterange,
+                           lag=lag,
+                           rolling_step=rolling_step,
+                           features=features,
+                           label=label)
         self.model = RandomForestClassifier(n_estimators=500)
-
-    def transform_data(self, train_data=None, backtest_data=None):
-        x_train = None
-        y_train = None
-        x_predict = None
-        transformed_train_data = []
-        transformed_backtest_data = []
-
-        for item in train_data:
-            transformed_train_data.append(list(item.values()))
-
-        transformed_train_data = np.array(transformed_train_data)
-        # bypass first col (start) and last col(action)
-        x_train = transformed_train_data[:, 1:-1]
-        y_train = np.reshape(
-            transformed_train_data[:, -1], len(transformed_train_data))
-        print(transformed_train_data.shape, x_train.shape, y_train.shape)
-
-        for item in backtest_data:
-            transformed_backtest_data.append(list(item.values()))
-        x_predict = np.array(transformed_backtest_data)[:, 1:]
-
-        print(x_predict.shape)
-        return (x_train, y_train, x_predict)
-
+        
     def train(self, x_train, y_train):
         self.model.fit(x_train, y_train)
 
