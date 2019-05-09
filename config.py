@@ -11,3 +11,5 @@ class Config:
     DEFAULT_TRAIN_SIZE = 5259487660 # 2 months in millisecond
     DEFAULT_HORIZON = 24
     MINUTE_IN_MILLISECONDS = 60000
+
+    DEFAULT_DROPPED_COLS_WHEN_LAGGING = ['start', 'ADX', 'MACD', 'RSI', 'volume', 'trades']

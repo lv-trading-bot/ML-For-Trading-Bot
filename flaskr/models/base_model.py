@@ -119,7 +119,7 @@ class BaseModel:
     def add_lagged_cols(self, pre_df, data_df, cols_to_drop):
         full_df = pd.concat([pre_df, data_df], ignore_index=True)
         shifted_dfs = [full_df]
-        dropped_df = full_df.drop(columns=cols_to_drop)
+        dropped_df = full_df.drop(columns=cols_to_drop, errors='ignore')
 
         if (len(pre_df) == self.lag and self.lag > 0):
             for i in range(1, self.lag + 1):
@@ -134,7 +134,7 @@ class BaseModel:
             raise Exception('Not enough pre_data to calculate lag')
 
     def split_x_y(self, data_df, cols_to_drop=[]):
-        x = data_df.drop(columns=cols_to_drop).values
+        x = data_df.drop(columns=cols_to_drop, errors='ignore').values
         y = data_df[[self.label]].values.reshape(-1)
         return x, y
 
@@ -150,7 +150,8 @@ class BaseModel:
         data_df = self.turn_into_DataFrame(raw_data)
 
         lagged_df = self.add_lagged_cols(
-            pre_df, data_df, cols_to_drop=['start', self.label])
+            pre_df, data_df, cols_to_drop=([self.label] + config.DEFAULT_DROPPED_COLS_WHEN_LAGGING))
+
         x, y = self.split_x_y(lagged_df, cols_to_drop=['start', self.label])
 
         if (for_training):
