@@ -1,6 +1,8 @@
 import os
 import requests
 import logging
+import json
+import joblib
 from config import Config as config
 
 logger = logging.getLogger(config.APP_LOGGER_NAME)
@@ -39,8 +41,8 @@ class Utils:
                 "asset": "BTC"
             },
             "candle_size": 60,
-            "from": "2018-10-01T00:00:00.000Z",
-            "to": "2018-10-01T02:00:00.000Z",
+            "from": 1555925760000,
+            "to": 1555929360000,
             "features": [
                 "start",
                 "close",
@@ -63,7 +65,21 @@ class Utils:
             Return array of dict if success, otherwise return None
         """
         try:
-            return requests.post(config.DB_SERVER_BASE_URL + '/candles', json=settings)
+            return requests.post(config.DB_SERVER_BASE_URL + '/candles', json=settings).json()
         except Exception as e:
-            logger.error(e)
-            return None
+            raise e
+            return []
+
+    def get_string_values_inside(obj):
+        result = []
+        
+        if (type(obj) is dict):
+            for item in obj:
+                result += Utils.get_string_values_inside(obj[item])
+        elif (type(obj) is list):   
+            for item in obj:
+                result += Utils.get_string_values_inside(item)    
+        else:
+            result.append(str(obj))
+
+        return sorted(result)

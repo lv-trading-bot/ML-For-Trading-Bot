@@ -4,6 +4,7 @@ import json
 import numpy as np
 import math
 import time
+import copy
 import pandas as pd
 
 from flask import Flask, request, abort, g
@@ -33,6 +34,9 @@ def create_app(test_config=None):
     except OSError:
         pass
 
+    # create live model store
+    live_model_store = ModelFactory.get_live_models()
+
     @app.before_request
     def before_request():
         g.request_start_time = time.time()
@@ -59,6 +63,9 @@ def create_app(test_config=None):
         try:
             post_data = request.get_json()
             post_metadata = post_data['metadata']
+            train_daterange = post_metadata['train_daterange']
+            test_daterange = post_metadata['backtest_daterange']
+
             app.logger.info('POST metada:\n%s', post_metadata)
             # If this is a correct model_name
             if(ModelFactory.model_is_existed(name=post_metadata['model_name'])):
@@ -69,73 +76,80 @@ def create_app(test_config=None):
                     candle_size=post_metadata['candle_size'],
                     market_info=post_metadata['market_info'],
                     train_daterange=post_metadata['train_daterange'],
-                    test_daterange=post_metadata['backtest_daterange'],
                     lag=post_metadata['lag'],
                     rolling_step=post_metadata['rolling_step'],
                     features=post_metadata['features'],
                     label=post_metadata['label'])
 
-                raw_result = my_model.get_raw_data()
-                x_train, y_train, x_rolling, y_rolling, x_predict = my_model.transform_data(
-                    raw_result)
-                y_predict = np.array([])
+                raw_pre_train, raw_train = my_model.get_raw_data(
+                    train_daterange['from'], train_daterange['to'])
+                test_size = test_daterange['to'] - test_daterange['from']
+                raw_rolling = my_model.get_candles_by_daterange(
+                    train_daterange['to'], train_daterange['to'] + test_size)
+                raw_pre_test, raw_test = my_model.get_raw_data(
+                    test_daterange['from'], test_daterange['to'])
+
+                # raw_test copy for later use
+                raw_test_copy = copy.deepcopy(raw_test)
 
                 # Backtest time!!
                 app.logger.info('Predicting...')
+                y_predict = np.array([])
 
                 if (my_model.model_type == "fixed"):
+                    x_train, y_train = my_model.prepare_data(
+                        raw_pre_train, raw_train, for_training=True)
+                    x_test, y_test = my_model.prepare_data(
+                        raw_pre_test, raw_test)
+
                     my_model.train(x_train, y_train)
-                    y_predict = my_model.predict(x_predict)
+                    y_predict = my_model.predict(x_test)
+
                 elif (my_model.model_type == "rolling"):
-                    # in case don't have enough data to roll
-                    # stop re-trainning from that point
-                    out_of_rolling = False
+                    rolling_step = my_model.rolling_step
 
-                    while (len(x_predict) != 0):
+                    while(len(raw_test) != 0):
                         print('Number of predictions left: %10d' %
-                              len(x_predict), end='\r')
+                              len(raw_test), end='\r')
 
-                        if (not out_of_rolling):
-                            my_model.train(x_train, y_train)
+                        # prepare data and train
+                        x_train, y_train = my_model.prepare_data(
+                            raw_pre_train, raw_train, for_training=True)
+                        x_test, y_test = my_model.prepare_data(
+                            raw_pre_test, raw_test[:rolling_step])
+                        my_model.train(x_train, y_train)
+                        y_predict = np.append(
+                            y_predict, my_model.predict(x_test))
 
-                        new_predictions = my_model.predict(
-                            x_predict[:my_model.rolling_step])
-                        actual_predictions_length = len(new_predictions)
+                        # perform sliding window for train data:
+                        # merge all for easy manipulation, remove old candles
+                        dropped = (raw_pre_train + raw_train +
+                                   raw_rolling)[rolling_step:]
+                        # split back
+                        raw_pre_train = dropped[:len(raw_pre_train)]
+                        raw_train = dropped[len(raw_pre_train): len(
+                            raw_pre_train)+len(raw_train)]
+                        raw_rolling = dropped[len(
+                            raw_pre_train) + len(raw_train):]
 
-                        y_predict = np.append(y_predict, new_predictions)
+                        # perform sliding window for test data: the same
+                        dropped2 = (raw_pre_test + raw_test)[rolling_step:]
+                        raw_pre_test = dropped2[:len(raw_pre_test)]
+                        raw_test = dropped2[len(raw_pre_test):]
 
-                        if(not out_of_rolling):
-                            if(len(x_rolling) < actual_predictions_length):
-                                out_of_rolling = True
-                            else:
-                                # perform sliding window:
-                                #   append new rows from x_rolling, y_rolling to x_train, y_train
-                                #   also remove old ones from x_train, y_train
-                                x_train = np.append(
-                                    x_train[actual_predictions_length:], x_rolling[:actual_predictions_length], axis=0)
-                                y_train = np.append(
-                                    y_train[actual_predictions_length:], y_rolling[:actual_predictions_length])
-                                #   after that, removes old ones from x_rolling, y_rolling too
-                                x_rolling = x_rolling[actual_predictions_length:]
-                                y_rolling = y_rolling[actual_predictions_length:]
-                        else:
-                            app.logger.warning(
-                                'Not enough data to perform rolling, model will stop retraining from now.')
+                    print('Number of predictions left: %10d' % len(raw_test))
 
-                        # finally, shift x_predict
-                        x_predict = x_predict[actual_predictions_length:]
-                    print('Number of predictions left: %10d' % len(x_predict))
                 else:
                     return 'Invalid model_type: %s' % my_model.model_type, 400
 
                 # maximum profit, FOR TESTING PURPOSE ONLY
-                y_predict = pd.DataFrame(raw_result['test']['data'])[[my_model.label]].values.reshape(
+                y_predict = pd.DataFrame(raw_test_copy)[[my_model.label]].values.reshape(
                     -1) if ('max_test' in post_metadata and post_metadata['max_test']) else y_predict
 
                 # Send result
                 result = {}
                 for i in range(len(y_predict)):
-                    result['{}'.format(raw_result['test']['data'][i]['start'])] = int(
+                    result['{}'.format(raw_test_copy[i]['start'])] = int(
                         y_predict[i])
                 return json.dumps(result)
             # Return 404, model_name not found
@@ -150,8 +164,66 @@ def create_app(test_config=None):
             return str(e), 400
 
     # live trading
-    @app.route('/live_trading', methods=['POST'])
-    def live_trading():
-        return "Live trading"
+    @app.route('/live', methods=['POST'])
+    def live():
+        try:
+            # Get request JSON
+            post_data = request.get_json()
+            app.logger.info('POST data:\n%s', post_data)
+            model_info = post_data['model_info']
+            candle_start = post_data['candle_start']
+
+            # Create first -> to calculate code_name
+            model = ModelFactory.create_model(
+                model_type=model_info['model_type'],
+                model_name=model_info['model_name'],
+                candle_size=model_info['candle_size'],
+                market_info=model_info['market_info'],
+                train_daterange=model_info['train_daterange'] if 'train_daterange' in model_info else None,
+                lag=model_info['lag'] if 'lag' in model_info else None,
+                rolling_step=model_info['rolling_step'] if 'rolling_step' in model_info else None,
+                features=model_info['features'],
+                label=model_info['label'])
+
+            # If model_code_name is specified, use it
+            if ('model_code_name' in post_data):
+                code_name = post_data['model_code_name']
+            else:
+                code_name = model.code_name
+
+            # Check model existence in store
+            if (code_name in live_model_store):
+                app.logger.info('Using existing model: ' + code_name)
+                model = live_model_store[code_name]
+            else:
+                app.logger.info('Creating new model: ' + code_name)
+                # Add new model to store
+                live_model_store[code_name] = model
+                model.train_by_daterange()
+
+            # Update and re-train if necessary
+            model.update_by_candle_start(candle_start)
+            # After all, save model!
+            model.save(config.LIVE_MODELS_DIR)
+
+            # Prepare test data
+            raw_pre_test, raw_test = model.get_raw_data(
+                candle_start, candle_start + model.candle_size * config.MINUTE_IN_MILLISECONDS)
+            x_test, y_test = model.prepare_data(raw_pre_test, raw_test)
+
+            # Predict
+            y_predict = model.predict(x_test)
+
+            result = {}
+            result['result'] = int(y_predict[0])
+            
+            return json.dumps(result)
+
+        except KeyError as e:
+            app.logger.error(e)
+            return 'Invalid JSON schema, please provide enough and correct params.', 400
+        except Exception as e:
+            app.logger.error(e)
+            return str(e), 400
 
     return app
