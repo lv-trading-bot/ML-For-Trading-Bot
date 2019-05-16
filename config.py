@@ -12,4 +12,4 @@ class Config:
     DEFAULT_HORIZON = 24
     MINUTE_IN_MILLISECONDS = 60000
 
-    DEFAULT_DROPPED_COLS_WHEN_LAGGING = ['start', 'ADX', 'MACD', 'RSI', 'volume', 'trades']
+    DEFAULT_DROPPED_COLS_WHEN_LAGGING = ['start', 'volume', 'trades', 'hour', 'ADX', 'MACD', 'RSI', 'PLUS_DI', 'MINUS_DI', 'TREND_BY_DI']

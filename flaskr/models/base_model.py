@@ -113,6 +113,29 @@ class BaseModel:
                             (data_from, data_to))
         return pre_data, data
 
+    def get_raw_train_data_for_backtest(self, train_daterange, rolling_size):
+        horizon = next(x for x in self.features if ('name' in x and x['name'] == self.label))[
+            'params']['expirationPeriod']
+        horizon_in_milliseconds = horizon * self.candle_size * MINUTE_IN_MILLISECONDS
+
+        # get h (horizon) more candles to prevent 'OMLBCT' strategy from classifying '0' for h last candles
+        raw_pre_train, raw_train_and_rolling = self.get_raw_data(
+            train_daterange['from'], train_daterange['to'] + rolling_size + horizon_in_milliseconds)
+
+        raw_train_separator_index = 0
+        raw_rolling_separator_index = 0
+        for candle in raw_train_and_rolling:
+            if (candle['start'] < train_daterange['to']):
+                raw_train_separator_index += 1
+                raw_rolling_separator_index += 1
+            if (candle['start'] >= train_daterange['to'] and candle['start'] < train_daterange['to'] + rolling_size):
+                raw_rolling_separator_index += 1
+
+        raw_train = raw_train_and_rolling[:raw_train_separator_index]
+        raw_rolling = raw_train_and_rolling[raw_train_separator_index:raw_rolling_separator_index]
+
+        return raw_pre_train, raw_train, raw_rolling
+
     def turn_into_DataFrame(self, raw_data):
         return pd.DataFrame(raw_data)
 
