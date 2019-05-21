@@ -20,9 +20,33 @@ class RandomForest(BaseModel):
                            features=features,
                            label=label)
         self.model = RandomForestClassifier(n_estimators=500)
-        
+
+    def prepare_data(self, raw_pre_data, raw_data, for_training=False):
+        # logger.info('Preparing data..., for_training=%s' % for_training)
+        pre_df = self.turn_into_DataFrame(raw_pre_data)
+        data_df = self.turn_into_DataFrame(raw_data)
+
+        lagged_df = self.add_lagged_cols(
+            pre_df, data_df, cols_to_drop=([self.label] + config.DEFAULT_DROPPED_COLS_WHEN_LAGGING))
+
+        x, y = self.split_x_y(lagged_df, cols_to_drop=['start', self.label])
+
+        if (for_training):
+            # remove last h candles due to OMLBCT strategy
+            horizon = self.get_horizon()
+            x = x[:-horizon]
+            y = y[:-horizon]
+            # logger.info('Fitting new scaler...')
+            self.fit_scaler(x)
+        x = self.standardize_data(x)
+
+        return x, y
+
     def train(self, x_train, y_train):
         self.model.fit(x_train, y_train)
 
     def predict(self, x_predict=np.array([])):
         return self.model.predict(x_predict)
+
+    def predict_proba(self, x_predict=np.array([])):
+        return self.model.predict_proba(x_predict)

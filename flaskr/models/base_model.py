@@ -43,8 +43,7 @@ class BaseModel:
             raise Exception('Lag value must be >= 0')
 
         try:
-            horizon = next(x for x in self.features if ('name' in x and x['name'] == self.label))[
-                'params']['expirationPeriod']
+            horizon = self.get_horizon()
         except Exception as e:
             logger.error(e)
             raise Exception(
@@ -86,6 +85,11 @@ class BaseModel:
             raw_code_name += str(item) + '$$'
         return hashlib.md5(raw_code_name.encode(encoding='utf-8')).hexdigest()
 
+    def get_horizon(self):
+        horizon = next(x for x in self.features if ('name' in x and x['name'] == self.label))[
+                'params']['expirationPeriod']
+        return horizon if horizon > 0 else config.DEFAULT_HORIZON
+
     def get_candles_by_daterange(self, from_time=0, to_time=0):
         logger.info('Getting candles from %s to %s' % (from_time, to_time))
         return Utils.get_candles_from_db(settings={
@@ -114,8 +118,7 @@ class BaseModel:
         return pre_data, data
 
     def get_raw_train_data_for_backtest(self, train_daterange, rolling_size):
-        horizon = next(x for x in self.features if ('name' in x and x['name'] == self.label))[
-            'params']['expirationPeriod']
+        horizon = self.get_horizon()
         horizon_in_milliseconds = horizon * self.candle_size * MINUTE_IN_MILLISECONDS
 
         # get h (horizon) more candles to prevent 'OMLBCT' strategy from classifying '0' for h last candles
@@ -154,7 +157,7 @@ class BaseModel:
         elif (self.lag == 0):
             return data_df
         else:
-            raise Exception('Not enough pre_data to calculate lag')
+            raise Exception('Not enough pre_data to calculate lag len(pre_df):%s self.lag:%s' % (len(pre_df), self.lag))
 
     def split_x_y(self, data_df, cols_to_drop=[]):
         x = data_df.drop(columns=cols_to_drop, errors='ignore').values
