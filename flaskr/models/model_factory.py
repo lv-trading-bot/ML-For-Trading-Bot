@@ -45,8 +45,9 @@ class ModelFactory:
         dirs = os.listdir(Config.LIVE_MODELS_DIR)
         result = {}
         for file_name in dirs:
-            name = file_name[:-7]  # exclude '.joblib'
-            result[name] = joblib.load(Config.LIVE_MODELS_DIR + file_name)
+            if file_name != '.gitignore':
+                name = file_name[:-7]  # exclude '.joblib'
+                result[name] = joblib.load(Config.LIVE_MODELS_DIR + file_name)
         return result
 
     # DEPRECATED
