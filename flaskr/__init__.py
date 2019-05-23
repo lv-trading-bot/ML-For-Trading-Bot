@@ -81,17 +81,17 @@ def create_app(test_config=None):
                     features=post_metadata['features'],
                     label=post_metadata['label'])
 
-                # old
-                raw_pre_train, raw_train = my_model.get_raw_data(
-                    train_daterange['from'], train_daterange['to'])
-                test_size = test_daterange['to'] - test_daterange['from']
-                raw_rolling = my_model.get_candles_by_daterange(
-                    train_daterange['to'], train_daterange['to'] + test_size)
-
-                # # new: get h more candles
+                # # old
+                # raw_pre_train, raw_train = my_model.get_raw_data(
+                #     train_daterange['from'], train_daterange['to'])
                 # test_size = test_daterange['to'] - test_daterange['from']
-                # raw_pre_train, raw_train, raw_rolling = my_model.get_raw_train_data_for_backtest(
-                #     train_daterange, rolling_size=test_size)
+                # raw_rolling = my_model.get_candles_by_daterange(
+                #     train_daterange['to'], train_daterange['to'] + test_size)
+
+                # new: get h more candles
+                test_size = test_daterange['to'] - test_daterange['from']
+                raw_pre_train, raw_train, raw_rolling = my_model.get_raw_train_data_for_backtest(
+                    train_daterange, rolling_size=test_size)
 
                 raw_pre_test, raw_test = my_model.get_raw_data(
                     test_daterange['from'], test_daterange['to'])
@@ -151,13 +151,12 @@ def create_app(test_config=None):
 
                 # maximum profit, FOR TESTING PURPOSE ONLY
                 y_predict = pd.DataFrame(raw_test_copy)[[my_model.label]].values.reshape(
-                    -1) if ('max_test' in post_metadata and post_metadata['max_test']) else y_predict
+                    -1).tolist() if ('max_test' in post_metadata and post_metadata['max_test']) else y_predict
 
                 # Send result
                 result = {}
                 for i in range(len(y_predict)):
-                    result['{}'.format(raw_test_copy[i]['start'])] = int(
-                        y_predict[i])
+                    result['{}'.format(raw_test_copy[i]['start'])] = y_predict[i]
                 return json.dumps(result)
             # Return 404, model_name not found
             else:

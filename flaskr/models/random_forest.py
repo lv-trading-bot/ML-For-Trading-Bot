@@ -49,4 +49,5 @@ class RandomForest(BaseModel):
         return self.model.predict(x_predict)
 
     def predict_proba(self, x_predict=np.array([])):
-        return self.model.predict_proba(x_predict)
+        result = self.model.predict_proba(x_predict)[:, 1]
+        return result
