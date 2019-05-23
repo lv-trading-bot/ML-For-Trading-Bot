@@ -26,6 +26,3 @@ htmlcov/
 .coverage
 .coverage.*
 *,cover
-
-exported_models
-live_models
