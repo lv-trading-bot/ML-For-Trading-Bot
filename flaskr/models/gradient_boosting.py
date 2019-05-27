@@ -47,8 +47,8 @@ class GradientBoosting(BaseModel):
         self.model.fit(x_train, y_train)
 
     def predict(self, x_predict=np.array([])):
-        return self.model.predict(x_predict)
+        return self.model.predict(x_predict).tolist()
 
     def predict_proba(self, x_predict=np.array([])):
-        result = self.model.predict_proba(x_predict)[:, 1]
+        result = self.model.predict_proba(x_predict)[:, 1].tolist()
         return result
