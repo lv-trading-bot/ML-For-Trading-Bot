@@ -110,7 +110,7 @@ def create_app(test_config=None):
                         raw_pre_test, raw_test)
 
                     my_model.train(x_train, y_train)
-                    y_predict = my_model.predict(x_test)
+                    y_predict = my_model.predict_proba(x_test)
 
                 elif (my_model.model_type == "rolling"):
                     rolling_step = my_model.rolling_step
@@ -126,7 +126,7 @@ def create_app(test_config=None):
                             raw_pre_test, raw_test[:rolling_step])
                         my_model.train(x_train, y_train)
                         y_predict = np.append(
-                            y_predict, my_model.predict(x_test))
+                            y_predict, my_model.predict_proba(x_test))
 
                         # perform sliding window for train data:
                         # merge all for easy manipulation, remove old candles
@@ -218,10 +218,10 @@ def create_app(test_config=None):
             x_test, y_test = model.prepare_data(raw_pre_test, raw_test)
 
             # Predict
-            y_predict = model.predict(x_test)
+            y_predict = model.predict_proba(x_test)
 
             result = {}
-            result['result'] = int(y_predict[0])
+            result['result'] = y_predict[0]
 
             return json.dumps(result)
 
