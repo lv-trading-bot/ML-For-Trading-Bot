@@ -10,10 +10,18 @@ import pandas as pd
 from flask import Flask, request, abort, g
 from flaskr.utils import Utils as utils
 from flaskr.models.model_factory import ModelFactory
+from flaskr.utils.socket import sio as sio_client
 from config import Config as config
+
+import logging
+logging.basicConfig(
+    format='%(asctime)s (%(levelname)s): %(message)s ', datefmt='%m/%d/%Y %I:%M:%S%p')
 
 
 def create_app(test_config=None):
+    # connect to socket server
+    sio_client.connect(config.SOCKET_URL)
+
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
@@ -156,7 +164,8 @@ def create_app(test_config=None):
                 # Send result
                 result = {}
                 for i in range(len(y_predict)):
-                    result['{}'.format(raw_test_copy[i]['start'])] = y_predict[i]
+                    result['{}'.format(
+                        raw_test_copy[i]['start'])] = y_predict[i]
                 return json.dumps(result)
             # Return 404, model_name not found
             else:
