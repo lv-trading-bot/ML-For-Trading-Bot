@@ -1,6 +1,6 @@
 # Server Machine Learning for Trading Bot System
 ## Install
-- ```pip install requirements.txt```
+- ```pip install -r requirements.txt```
 ## Run
 1. Windows:
 - ```set FLASK_APP=flaskr```
@@ -13,5 +13,6 @@
 
 ## ENV
 - PORT
+- ID
 - DB_SERVER_API_BASE
 - SOCKET_URL

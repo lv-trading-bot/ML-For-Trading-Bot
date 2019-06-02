@@ -3,12 +3,13 @@ import os
 class Config:
     APP_LOGGER_NAME = 'flask.app'
     PORT = os.getenv('PORT', 3002)
+    ID = os.getenv('ID', 'ML_Server_default')
 
     EXPORTED_MODELS_DIR = 'flaskr/exported_models/'
     EXPORTED_MODELS_MPATH = 'flaskr.exported_models'  # module path
     LIVE_MODELS_DIR = 'flaskr/live_models/'
     MODEL_DIR = 'flaskr/models/'
-    ID_JSON_FILE = 'flaskr/id.json'
+    # ID_JSON_FILE = 'flaskr/id.json'
 
     MODEL_TYPES = ["fixed", "rolling"]
     DB_SERVER_BASE_URL = os.getenv("DB_SERVER_API_BASE", 'http://localhost:3001')

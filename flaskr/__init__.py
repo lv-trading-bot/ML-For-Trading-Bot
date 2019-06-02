@@ -19,15 +19,19 @@ logging.basicConfig(
 
 
 def create_app(test_config=None):
-    # connect to socket server
-    sio_client.connect(config.SOCKET_URL)
-
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
     app.config.from_mapping(
         SECRET_KEY='dev',
         DATABASE=os.path.join(app.instance_path, 'flaskr.sqlite'),
     )
+
+    # connect to socket server
+    try:
+        sio_client.connect(config.SOCKET_URL)
+    except:
+        app.logger.warn('Cannot connect by socket to %s' % (config.SOCKET_URL))
+        pass
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -51,8 +55,8 @@ def create_app(test_config=None):
 
     @app.after_request
     def after_request(response):
-        app.logger.info('Execution time %ss', round(
-            time.time() - g.request_start_time, 5))
+        app.logger.info('%s %s %s Execution time %ss' % (request.method, request.path, response.status_code, round(
+            time.time() - g.request_start_time, 5)))
         return response
 
     # a simple page that says hello
