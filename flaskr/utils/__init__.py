@@ -1,4 +1,7 @@
+from requests.packages.urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 import os
+from time import sleep
 import requests
 import logging
 import json
@@ -27,6 +30,25 @@ class Utils:
                 result.append(
                     {k: v for (k, v) in candle.items() if k in keys})
         return np.array(result)
+
+    def requests_retry_session(
+        retries=3,
+        backoff_factor=0.3,
+        status_forcelist=(500, 502, 504),
+        session=None,
+    ):
+        session = session or requests.Session()
+        retry = Retry(
+            total=retries,
+            read=retries,
+            connect=retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=status_forcelist,
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        return session
 
     def get_candles_from_db(settings):
         """Get raw candles from DB
@@ -64,21 +86,24 @@ class Utils:
         candles: array
             Return array of dict if success, otherwise return None
         """
+
+        MAX_RETRIES = 3
+        BACKOFF_FACTOR = 2.5
         try:
-            return requests.post(config.DB_SERVER_BASE_URL + '/candles', json=settings).json()
+            return Utils.requests_retry_session(retries=MAX_RETRIES, backoff_factor=BACKOFF_FACTOR).post(config.DB_SERVER_BASE_URL + '/candles', json=settings).json()
         except Exception as e:
             raise e
             return []
 
     def get_string_values_inside(obj):
         result = []
-        
+
         if (type(obj) is dict):
             for item in obj:
                 result += Utils.get_string_values_inside(obj[item])
-        elif (type(obj) is list):   
+        elif (type(obj) is list):
             for item in obj:
-                result += Utils.get_string_values_inside(item)    
+                result += Utils.get_string_values_inside(item)
         else:
             result.append(str(obj))
 
