@@ -3,5 +3,5 @@ ADD . /code
 WORKDIR /code
 RUN pip install -r requirements.txt
 EXPOSE 3002
-ENV FLASK_DEBUG=true
+ENV FLASK_DEBUG=1
 CMD ["python", "./serve.py"]
