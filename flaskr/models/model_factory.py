@@ -9,7 +9,6 @@ from config import Config
 available_models = {
     "random_forest": RandomForest,
     "gradient_boosting": GradientBoosting,
-    "lstm": Lstm
 }
 
 MODEL_TYPES = Config.MODEL_TYPES

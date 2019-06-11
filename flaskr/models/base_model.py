@@ -109,6 +109,9 @@ class BaseModel:
             pre_from = data_from - self.lag * self.candle_size * MINUTE_IN_MILLISECONDS
             pre_to = data_from
             pre_data = self.get_candles_by_daterange(pre_from, pre_to)
+            if (len(data) == 0):
+                raise Exception('Cannot get data from %s to %s' %
+                            (pre_from, pre_to))
 
         data = self.get_candles_by_daterange(data_from, data_to)
 

@@ -38,6 +38,8 @@ class Utils:
         session=None,
     ):
         session = session or requests.Session()
+        session.headers['Authorization'] = config.AUTHENTICATION_TOKEN
+        
         retry = Retry(
             total=retries,
             read=retries,
@@ -90,10 +92,11 @@ class Utils:
         MAX_RETRIES = 3
         BACKOFF_FACTOR = 2.5
         try:
-            return Utils.requests_retry_session(retries=MAX_RETRIES, backoff_factor=BACKOFF_FACTOR).post(config.DB_SERVER_BASE_URL + '/candles', json=settings).json()
+            r = Utils.requests_retry_session(retries=MAX_RETRIES, backoff_factor=BACKOFF_FACTOR).post(config.DB_SERVER_BASE_URL + '/candles', json=settings)
+            r.raise_for_status() # in case HTTPError
+            return r.json()
         except Exception as e:
             raise e
-            return []
 
     def get_string_values_inside(obj):
         result = []

@@ -4,6 +4,7 @@ class Config:
     APP_LOGGER_NAME = 'flask.app'
     PORT = os.getenv('PORT', 3002)
     ID = os.getenv('ID', 'ML_Server_default')
+    AUTHENTICATION_TOKEN = os.getenv('AUTHENTICATION_TOKEN')
 
     EXPORTED_MODELS_DIR = 'flaskr/exported_models/'
     EXPORTED_MODELS_MPATH = 'flaskr.exported_models'  # module path
