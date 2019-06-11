@@ -30,11 +30,7 @@ def create_app(test_config=None):
     )
 
     # connect to socket server
-    try:
-        sio_client.connect(config.SOCKET_URL)
-    except:
-        app.logger.error('Cannot connect by socket to %s' % (config.SOCKET_URL))
-        pass
+    sio_client.connect(config.SOCKET_URL)
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
