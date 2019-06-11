@@ -45,7 +45,7 @@ class BaseModel:
         try:
             horizon = self.get_horizon()
         except Exception as e:
-            logger.error(e)
+            logger.error(e, exc_info=True)
             raise Exception(
                 'Cannot get expirationPeriod in labeled feature\'s params')
 

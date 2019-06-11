@@ -235,7 +235,7 @@ def create_app(test_config=None):
 
     @app.errorhandler(Exception)
     def handle_bad_request(e):
-        app.logger.error(e)
+        app.logger.error(e, exc_info=True)
         exception_type = type(e).__name__
 
         if (exception_type == 'KeyError'):
