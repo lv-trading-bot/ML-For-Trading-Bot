@@ -24,11 +24,12 @@ class BaseModel:
     def __init__(self, model_type=MODEL_TYPES[0], model_name="random_forest", candle_size=60, market_info=None, train_daterange=None, lag=0, rolling_step=0, features=["close", "omlbct"], label="omlbct"):
         self.model_type = model_type
         self.model_name = model_name
-        self.candle_size = candle_size
+        self.candle_size = int(candle_size)
         self.market_info = copy.deepcopy(market_info)
         self.train_daterange = copy.deepcopy(train_daterange)
-        self.lag = lag if lag is not None else 0
-        self.rolling_step = rolling_step if rolling_step is not None else 0
+        self.lag = int(lag) if lag is not None else 0
+        self.rolling_step = int(
+            rolling_step) if rolling_step is not None else 0
 
         self.features = copy.deepcopy(features)
         self.label = label
@@ -50,7 +51,9 @@ class BaseModel:
                 'Cannot get expirationPeriod in labeled feature\'s params')
 
         if (train_daterange is None or model_type == 'rolling'):
-            now = int(time.time()*1000) - MINUTE_IN_MILLISECONDS
+            # get current time by the start of minute
+            passed_minutes = int(time.time()) // 60
+            now = passed_minutes * MINUTE_IN_MILLISECONDS
 
             try:
                 train_size = self.train_daterange['to'] - \
@@ -87,18 +90,30 @@ class BaseModel:
 
     def get_horizon(self):
         horizon = next(x for x in self.features if ('name' in x and x['name'] == self.label))[
-                'params']['expirationPeriod']
+            'params']['expirationPeriod']
         return horizon if horizon > 0 else config.DEFAULT_HORIZON
 
     def get_candles_by_daterange(self, from_time=0, to_time=0):
         logger.info('Getting candles from %s to %s' % (from_time, to_time))
-        return Utils.get_candles_from_db(settings={
-            'market_info': self.market_info,
-            'candle_size': self.candle_size,
-            'from': from_time,
-            'to': to_time,
-            'features': self.features,
-        })
+        MAX_RETRIES = 5
+        for i in range(MAX_RETRIES):
+            result = Utils.get_candles_from_db(settings={
+                'market_info': self.market_info,
+                'candle_size': self.candle_size,
+                'from': from_time,
+                'to': to_time,
+                'features': self.features,
+            })
+            # check if got the right number of candles
+            expected_number_of_candles = (
+                to_time - from_time) // (self.candle_size * MINUTE_IN_MILLISECONDS)
+            got_enough_candles = expected_number_of_candles == len(result)
+            if (got_enough_candles or i == (MAX_RETRIES - 1)):
+                logger.info('Expected vs actual number of candles: (%s, %s)' % (
+                    expected_number_of_candles, len(result)))
+                return result
+            else:
+                time.sleep(10)
 
     def get_raw_data(self, data_from, data_to):
         """Get raw data, including pre_data if has lag"""
@@ -109,9 +124,9 @@ class BaseModel:
             pre_from = data_from - self.lag * self.candle_size * MINUTE_IN_MILLISECONDS
             pre_to = data_from
             pre_data = self.get_candles_by_daterange(pre_from, pre_to)
-            if (len(data) == 0):
+            if (len(pre_data) == 0):
                 raise Exception('Cannot get data from %s to %s' %
-                            (pre_from, pre_to))
+                                (pre_from, pre_to))
 
         data = self.get_candles_by_daterange(data_from, data_to)
 
@@ -160,7 +175,8 @@ class BaseModel:
         elif (self.lag == 0):
             return data_df
         else:
-            raise Exception('Not enough pre_data to calculate lag len(pre_df):%s self.lag:%s' % (len(pre_df), self.lag))
+            raise Exception('Not enough pre_data to calculate lag len(pre_df):%s self.lag:%s' % (
+                len(pre_df), self.lag))
 
     def split_x_y(self, data_df, cols_to_drop=[]):
         x = data_df.drop(columns=cols_to_drop, errors='ignore').values
@@ -210,7 +226,7 @@ class BaseModel:
 
     def update_by_candle_start(self, candle_start):
         if (self.model_type == 'rolling'):
-            candle_size_in_milliseconds = self.candle_size*MINUTE_IN_MILLISECONDS
+            candle_size_in_milliseconds = self.candle_size * MINUTE_IN_MILLISECONDS
             rolling_step_in_milliseconds = self.rolling_step * candle_size_in_milliseconds
 
             train_to = self.train_daterange['to']

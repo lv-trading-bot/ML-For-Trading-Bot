@@ -53,42 +53,6 @@ class Utils:
         return session
 
     def get_candles_from_db(settings):
-        """Get raw candles from DB
-
-        Parameters
-        ----------
-        settings : object
-        {
-            "market_info": {
-                "exchange": "binance",
-                "currency": "USDT",
-                "asset": "BTC"
-            },
-            "candle_size": 60,
-            "from": 1555925760000,
-            "to": 1555929360000,
-            "features": [
-                "start",
-                "close",
-                "volume",
-                "trades",
-                {
-                        "name": "omlbct",
-                        "params": {
-                                "takeProfit": 2,
-                                "stopLoss": -10,
-                                "expirationPeriod": 24
-                        }
-                }
-            ]
-        }
-
-        Returns
-        -------
-        candles: array
-            Return array of dict if success, otherwise return None
-        """
-
         MAX_RETRIES = 3
         BACKOFF_FACTOR = 2.5
         try:
