@@ -11,6 +11,7 @@ from flask import Flask, request, abort, g
 from flaskr.utils import Utils as utils
 from flaskr.models.model_factory import ModelFactory
 from flaskr.utils.socket import sio as sio_client
+from sklearn.metrics import accuracy_score
 from config import Config as config
 
 import logging
@@ -30,7 +31,7 @@ def create_app(test_config=None):
     )
 
     # connect to socket server
-    sio_client.connect(config.SOCKET_URL)
+    # sio_client.connect(config.SOCKET_URL)
 
     if test_config is None:
         # load the instance config, if it exists, when not testing
@@ -164,14 +165,19 @@ def create_app(test_config=None):
                 raise Exception('Invalid model_type: %s' % my_model.model_type)
 
             # maximum profit, FOR TESTING PURPOSE ONLY
-            y_predict = pd.DataFrame(raw_test_copy)[[my_model.label]].values.reshape(
-                -1).tolist() if ('max_test' in post_metadata and post_metadata['max_test']) else y_predict
+            y_true = pd.DataFrame(raw_test_copy)[[my_model.label]].values.reshape(
+                -1).tolist() 
+            if ('max_test' in post_metadata and post_metadata['max_test']):
+                y_predict = y_true
 
             # Send result
             result = {}
+            y_predict_labels = []
             for i in range(len(y_predict)):
                 result['{}'.format(
                     raw_test_copy[i]['start'])] = y_predict[i]
+                y_predict_labels.append(y_predict[i] > 0.5)
+            result['mean_accuracy'] = accuracy_score(y_true, y_predict_labels)
             return json.dumps(result)
         # Return 404, model_name not found
         else:
