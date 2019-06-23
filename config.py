@@ -10,6 +10,8 @@ class Config:
     EXPORTED_MODELS_MPATH = 'flaskr.exported_models'  # module path
     LIVE_MODELS_DIR = 'flaskr/live_models/'
     MODEL_DIR = 'flaskr/models/'
+    
+    LOGS_FILE = 'flaskr/logs/app.log'
     # ID_JSON_FILE = 'flaskr/id.json'
 
     MODEL_TYPES = ["fixed", "rolling"]

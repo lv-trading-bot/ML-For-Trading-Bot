@@ -15,7 +15,7 @@ from config import Config as config
 
 import logging
 logging.basicConfig(
-    format='%(asctime)s (%(levelname)s): %(message)s ', datefmt='%m/%d/%Y %I:%M:%S%p')
+    format='%(asctime)s (%(levelname)s): %(message)s ', datefmt='%m/%d/%Y %I:%M:%S%p', filename=config.LOGS_FILE, level=logging.DEBUG)
 
 if (config.AUTHENTICATION_TOKEN is None):
     raise Exception('AUTHENTICATION_TOKEN env variable not found!')
