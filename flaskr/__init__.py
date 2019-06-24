@@ -95,13 +95,6 @@ def create_app(test_config=None):
                 features=post_metadata['features'],
                 label=post_metadata['label'])
 
-            # # old
-            # raw_pre_train, raw_train = my_model.get_raw_data(
-            #     train_daterange['from'], train_daterange['to'])
-            # test_size = test_daterange['to'] - test_daterange['from']
-            # raw_rolling = my_model.get_candles_by_daterange(
-            #     train_daterange['to'], train_daterange['to'] + test_size)
-
             # new: get h more candles
             test_size = test_daterange['to'] - test_daterange['from']
             raw_pre_train, raw_train, raw_rolling = my_model.get_raw_train_data_for_backtest(
@@ -131,7 +124,7 @@ def create_app(test_config=None):
 
                 while(len(raw_test) != 0):
                     print('Number of predictions left: %10d' %
-                          len(raw_test), end='\r')
+                          len(raw_test))
 
                     # prepare data and train
                     x_train, y_train = my_model.prepare_data(
